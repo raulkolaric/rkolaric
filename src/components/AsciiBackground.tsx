@@ -1,5 +1,9 @@
 "use client";
 
+const VIEWER_DISTANCE = 11;
+const VIEWPORT_FILL = 0.62;
+const SAMPLE_SPACING = 0.4;
+
 type V3 = [number, number, number];
 
 function dot3(a: V3, b: V3) {
@@ -193,6 +197,66 @@ const shapes: Shape[] = [
   { name: "seashell", umin: 0, umax: 10 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 5.5, surface: shellSurface },
   { name: "twisted torus", umin: 0, umax: 2 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 3.3, surface: crullerSurface },
 ];
+
+interface Raster {
+  width: number;
+  height: number;
+  centerX: number;
+  centerY: number;
+  projectionScale: number;
+  uStep: number;
+  vStep: number;
+  screen: Uint8Array;
+  zBuffer: Float32Array;
+}
+
+function createRaster(
+  viewportWidth: number,
+  viewportHeight: number,
+  characterWidth: number,
+  characterHeight: number,
+  shape: Shape,
+): Raster {
+  const width = Math.max(20, Math.floor(viewportWidth / characterWidth));
+  const height = Math.max(10, Math.floor(viewportHeight / characterHeight));
+  const projectionScale =
+    (VIEWPORT_FILL * (height / 2) * VIEWER_DISTANCE) / shape.extent;
+  const step =
+    (SAMPLE_SPACING * VIEWER_DISTANCE) / (projectionScale * shape.extent);
+
+  return {
+    width,
+    height,
+    centerX: width / 2,
+    centerY: height / 2,
+    projectionScale,
+    uStep: step,
+    vStep: step,
+    screen: new Uint8Array(width * height),
+    zBuffer: new Float32Array(width * height),
+  };
+}
+
+function clearRaster(raster: Raster) {
+  raster.screen.fill(32);
+  raster.zBuffer.fill(0);
+}
+
+function projectPoint(point: V3, raster: Raster) {
+  const cameraZ = point[2] + VIEWER_DISTANCE;
+  if (cameraZ <= 0.1) return null;
+
+  const inverseZ = 1 / cameraZ;
+  const x =
+    (raster.centerX + raster.projectionScale * inverseZ * point[0] + 0.5) |
+    0;
+  const y =
+    (raster.centerY - raster.projectionScale * inverseZ * point[1] + 0.5) |
+    0;
+
+  if (x < 0 || x >= raster.width || y < 0 || y >= raster.height) return null;
+  return { x, y, inverseZ, index: x + y * raster.width };
+}
 
 function rotate(point: V3, cosA: number, sinA: number, cosB: number, sinB: number) {
   const x = point[0];
