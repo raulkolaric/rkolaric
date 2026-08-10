@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const jetbrainsMono = JetBrains_Mono({
@@ -25,7 +26,10 @@ export default function RootLayout({
       className={jetbrainsMono.variable}
       suppressHydrationWarning
     >
-      <body>{children}</body>
+      <body>
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }

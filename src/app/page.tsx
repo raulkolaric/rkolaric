@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import AsciiBackground from "@/components/AsciiBackground";
 
+// Left-column links. Add/remove freely — order is preserved.
 const links = [
   { label: "GitHub", href: "https://github.com/raulkolaric" },
   { label: "LinkedIn", href: "https://www.linkedin.com/in/raulkolaric/" },
@@ -15,6 +16,7 @@ const links = [
 export default function Home() {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
 
+  // Restore saved theme on mount.
   useEffect(() => {
     const saved = localStorage.getItem("theme");
     if (saved === "light" || saved === "dark") {
@@ -22,6 +24,7 @@ export default function Home() {
     }
   }, []);
 
+  // Reflect theme on <html> so CSS variables switch.
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("theme", theme);
@@ -38,8 +41,8 @@ export default function Home() {
             <a
               key={link.label}
               href={link.href}
-              target="_blank"
-              rel="noopener noreferrer"
+              target={link.href.startsWith("http") ? "_blank" : undefined}
+              rel={link.href.startsWith("http") ? "noopener noreferrer" : undefined}
             >
               {link.label}
             </a>
@@ -49,12 +52,13 @@ export default function Home() {
 
       <button
         className="theme-toggle"
-        onClick={() => setTheme((current) => (current === "light" ? "dark" : "light"))}
+        onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
         aria-label="Toggle color theme"
       >
         {theme === "light" ? "☾" : "☀"}
       </button>
 
+      {/* ─── ASCII animation (ported from shapes.c) ──────────────── */}
       <div className="stage">
         <AsciiBackground />
       </div>

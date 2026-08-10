@@ -1,6 +1,4 @@
-*,
-*::before,
-*::after {
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -25,7 +23,6 @@ html {
 }
 
 body {
-  min-height: 100vh;
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-jetbrains-mono), "SF Mono", "Menlo", "Consolas",
@@ -36,11 +33,15 @@ body {
   transition: background 0.2s ease, color 0.2s ease;
 }
 
+/* ─── Page frame ──────────────────────────────────────────────── */
+
 .page {
   position: relative;
   min-height: 100vh;
   padding: 2.5rem;
 }
+
+/* ─── Masthead (top-left: name, tagline, links) ───────────────── */
 
 .masthead {
   position: relative;
@@ -79,6 +80,8 @@ body {
   opacity: 0.5;
 }
 
+/* ─── Theme toggle (top-right) ────────────────────────────────── */
+
 .theme-toggle {
   position: absolute;
   top: 2.5rem;
@@ -99,6 +102,8 @@ body {
   opacity: 1;
 }
 
+/* ─── Center stage for the ASCII animation ────────────────────── */
+
 .stage {
   position: fixed;
   inset: 0;
@@ -117,6 +122,8 @@ body {
   white-space: pre;
   text-align: center;
 }
+
+/* ─── Footer ──────────────────────────────────────────────────── */
 
 .footer {
   position: fixed;

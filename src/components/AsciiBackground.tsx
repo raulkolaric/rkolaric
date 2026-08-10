@@ -2,189 +2,179 @@
 
 import { useEffect, useRef } from "react";
 
-const VIEWER_DISTANCE = 11;
-const VIEWPORT_FILL = 0.62;
-const SAMPLE_SPACING = 0.4;
-const SAMPLE_BUDGET = 130000;
-const FRAME_INTERVAL = 33;
-const LUMINANCE_RAMP = ".,-~:;=!*#$@";
-const LIGHT: V3 = [0, 0.70710678, -0.70710678];
+/*
+ * Port of shapes.c — spinning, shaded ASCII 3D shapes.
+ * Same engine (z-buffer + normal-based shading, auto-fit to the viewport).
+ * One of the four shapes is chosen at random on each mount (page load).
+ */
 
+// ─── global look/motion knobs (from shapes.c) ──────────────────────────────
+const K2 = 11.0; // viewer distance (perspective strength)
+const FILL = 0.62; // fraction of viewport height the shape fills
+const SAMPLE = 0.4; // target on-screen sample spacing, in cells
+const BUDGET = 130000; // max surface samples per frame (caps CPU cost)
+const DA = 0.03; // tilt speed per rendered frame
+const DB = 0.02; // turn speed per rendered frame
+const FRAME_MS = 33; // ~30 fps
+const RAMP = ".,-~:;=!*#$@";
+// directional light
+const LX = 0.0;
+const LY = 0.70710678;
+const LZ = -0.70710678;
+
+// ─── tiny 3D vector helpers ────────────────────────────────────────────────
 type V3 = [number, number, number];
 
 function dot3(a: V3, b: V3) {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
-
-function cross3(a: V3, b: V3, result: V3) {
-  result[0] = a[1] * b[2] - a[2] * b[1];
-  result[1] = a[2] * b[0] - a[0] * b[2];
-  result[2] = a[0] * b[1] - a[1] * b[0];
+function cross3(a: V3, b: V3, r: V3) {
+  r[0] = a[1] * b[2] - a[2] * b[1];
+  r[1] = a[2] * b[0] - a[0] * b[2];
+  r[2] = a[0] * b[1] - a[1] * b[0];
 }
-
-function norm3(vector: V3) {
-  return Math.sqrt(dot3(vector, vector));
+function norm3(a: V3) {
+  return Math.sqrt(dot3(a, a));
 }
-
-function normalize3(vector: V3) {
-  const length = norm3(vector);
-  if (length > 1e-12) {
-    vector[0] /= length;
-    vector[1] /= length;
-    vector[2] /= length;
+function normalize3(a: V3) {
+  const n = norm3(a);
+  if (n > 1e-12) {
+    a[0] /= n;
+    a[1] /= n;
+    a[2] /= n;
   }
 }
 
-type PointFn = (u: number, v: number, point: V3) => void;
-type CurveFn = (t: number, point: V3) => void;
-type RadiusFn = (t: number) => number;
-type SurfaceFn = (u: number, v: number, point: V3, normal: V3) => void;
+type PointFn = (u: number, v: number, p: V3) => void;
+type CurveFn = (t: number, c: V3) => void;
+type RadFn = (t: number) => number;
+type SurfFn = (u: number, v: number, P: V3, N: V3) => void;
 
-const basePoint: V3 = [0, 0, 0];
-const pointU: V3 = [0, 0, 0];
-const pointV: V3 = [0, 0, 0];
-const curvePoint: V3 = [0, 0, 0];
-const curveNext: V3 = [0, 0, 0];
-const curvePrevious: V3 = [0, 0, 0];
-const tangent: V3 = [0, 0, 0];
-const curvature: V3 = [0, 0, 0];
-const normalFrame: V3 = [0, 0, 0];
-const binormal: V3 = [0, 0, 0];
+// scratch buffers (avoid per-sample allocation)
+const _p0: V3 = [0, 0, 0];
+const _pu: V3 = [0, 0, 0];
+const _pv: V3 = [0, 0, 0];
+const _c: V3 = [0, 0, 0];
+const _cp: V3 = [0, 0, 0];
+const _cm: V3 = [0, 0, 0];
+const _T: V3 = [0, 0, 0];
+const _D2: V3 = [0, 0, 0];
+const _Nn: V3 = [0, 0, 0];
+const _B: V3 = [0, 0, 0];
 
-function numericNormal(pointFn: PointFn, u: number, v: number, normal: V3) {
-  const delta = 1e-3;
-  pointFn(u, v, basePoint);
-  pointFn(u + delta, v, pointU);
-  pointFn(u, v + delta, pointV);
-  const tangentU: V3 = [
-    pointU[0] - basePoint[0],
-    pointU[1] - basePoint[1],
-    pointU[2] - basePoint[2],
-  ];
-  const tangentV: V3 = [
-    pointV[0] - basePoint[0],
-    pointV[1] - basePoint[1],
-    pointV[2] - basePoint[2],
-  ];
-  cross3(tangentU, tangentV, normal);
-  normalize3(normal);
+// surface normal by finite differences — works for any smooth point fn
+function numericNormal(pt: PointFn, u: number, v: number, N: V3) {
+  const h = 1e-3;
+  pt(u, v, _p0);
+  pt(u + h, v, _pu);
+  pt(u, v + h, _pv);
+  const Tu: V3 = [_pu[0] - _p0[0], _pu[1] - _p0[1], _pu[2] - _p0[2]];
+  const Tv: V3 = [_pv[0] - _p0[0], _pv[1] - _p0[1], _pv[2] - _p0[2]];
+  cross3(Tu, Tv, N);
+  normalize3(N);
 }
 
-function tubeSurface(
-  curve: CurveFn,
-  radius: RadiusFn,
+// tube of radius rad(t) swept around a space curve crv(t)
+function tubeSurf(
+  crv: CurveFn,
+  rad: RadFn,
   u: number,
   v: number,
-  point: V3,
-  normal: V3,
+  P: V3,
+  N: V3
 ) {
-  const delta = 1e-3;
-  curve(u, curvePoint);
-  curve(u + delta, curveNext);
-  curve(u - delta, curvePrevious);
-
-  for (let index = 0; index < 3; index++) {
-    tangent[index] = (curveNext[index] - curvePrevious[index]) / (2 * delta);
-    curvature[index] =
-      (curveNext[index] - 2 * curvePoint[index] + curvePrevious[index]) /
-      (delta * delta);
+  const h = 1e-3;
+  crv(u, _c);
+  crv(u + h, _cp);
+  crv(u - h, _cm);
+  for (let i = 0; i < 3; i++) {
+    _T[i] = (_cp[i] - _cm[i]) / (2 * h);
+    _D2[i] = (_cp[i] - 2 * _c[i] + _cm[i]) / (h * h);
   }
-
-  normalize3(tangent);
-  const tangentProjection = dot3(curvature, tangent);
-  for (let index = 0; index < 3; index++) {
-    normalFrame[index] = curvature[index] - tangentProjection * tangent[index];
-  }
-
-  if (norm3(normalFrame) < 1e-6) {
-    const up: V3 = Math.abs(tangent[2]) > 0.9 ? [1, 0, 0] : [0, 0, 1];
-    const upProjection = dot3(up, tangent);
-    for (let index = 0; index < 3; index++) {
-      normalFrame[index] = up[index] - upProjection * tangent[index];
+  normalize3(_T);
+  const d = dot3(_D2, _T);
+  for (let i = 0; i < 3; i++) _Nn[i] = _D2[i] - d * _T[i];
+  if (norm3(_Nn) < 1e-6) {
+    const up: V3 = [0, 0, 1];
+    if (Math.abs(dot3(up, _T)) > 0.9) {
+      up[0] = 1;
+      up[1] = 0;
+      up[2] = 0;
     }
+    const du = dot3(up, _T);
+    for (let i = 0; i < 3; i++) _Nn[i] = up[i] - du * _T[i];
   }
-
-  normalize3(normalFrame);
-  cross3(tangent, normalFrame, binormal);
-
-  const distance = radius(u);
-  const cosV = Math.cos(v);
-  const sinV = Math.sin(v);
-  for (let index = 0; index < 3; index++) {
-    const radial = cosV * normalFrame[index] + sinV * binormal[index];
-    point[index] = curvePoint[index] + distance * radial;
-    normal[index] = radial;
+  normalize3(_Nn);
+  cross3(_T, _Nn, _B);
+  const a = rad(u);
+  const cv = Math.cos(v);
+  const sv = Math.sin(v);
+  for (let i = 0; i < 3; i++) {
+    const radial = cv * _Nn[i] + sv * _B[i];
+    P[i] = _c[i] + a * radial;
+    N[i] = radial;
   }
 }
 
-function trefoilCurve(t: number, point: V3) {
-  const p = 2;
-  const q = 3;
-  const radius = 2 + Math.cos(q * t);
-  point[0] = radius * Math.cos(p * t);
-  point[1] = radius * Math.sin(p * t);
-  point[2] = -Math.sin(q * t);
-}
+// ─── the shapes ────────────────────────────────────────────────────────────
 
-const trefoilSurface: SurfaceFn = (u, v, point, normal) => {
-  tubeSurface(trefoilCurve, () => 0.5, u, v, point, normal);
+// 1) trefoil knot
+function curveTrefoil(t: number, c: V3) {
+  const p = 2.0,
+    q = 3.0,
+    r = 2.0 + Math.cos(q * t);
+  c[0] = r * Math.cos(p * t);
+  c[1] = r * Math.sin(p * t);
+  c[2] = -Math.sin(q * t);
+}
+const surfTrefoil: SurfFn = (u, v, P, N) =>
+  tubeSurf(curveTrefoil, () => 0.5, u, v, P, N);
+
+// 2) klein bottle (figure-8 immersion)
+function kleinPoint(u: number, v: number, p: V3) {
+  const r = 2.5,
+    c2 = Math.cos(u / 2),
+    s2 = Math.sin(u / 2);
+  const sv = Math.sin(v),
+    s2v = Math.sin(2 * v);
+  const rad = r + c2 * sv - s2 * s2v;
+  p[0] = rad * Math.cos(u);
+  p[1] = rad * Math.sin(u);
+  p[2] = s2 * sv + c2 * s2v;
+}
+const surfKlein: SurfFn = (u, v, P, N) => {
+  kleinPoint(u, v, P);
+  numericNormal(kleinPoint, u, v, N);
 };
 
-function kleinPoint(u: number, v: number, point: V3) {
-  const radius = 2.5;
-  const cosHalfU = Math.cos(u / 2);
-  const sinHalfU = Math.sin(u / 2);
-  const sinV = Math.sin(v);
-  const sinDoubleV = Math.sin(2 * v);
-  const ring = radius + cosHalfU * sinV - sinHalfU * sinDoubleV;
-
-  point[0] = ring * Math.cos(u);
-  point[1] = ring * Math.sin(u);
-  point[2] = sinHalfU * sinV + cosHalfU * sinDoubleV;
+// 3) seashell (growing tube on a log spiral)
+function curveShell(t: number, c: V3) {
+  const g = Math.exp(0.05 * t);
+  c[0] = g * Math.cos(t);
+  c[1] = g * Math.sin(t);
+  c[2] = -0.4 * g;
 }
+const surfShell: SurfFn = (u, v, P, N) =>
+  tubeSurf(curveShell, (t) => 0.18 * Math.exp(0.05 * t), u, v, P, N);
 
-const kleinSurface: SurfaceFn = (u, v, point, normal) => {
-  kleinPoint(u, v, point);
-  numericNormal(kleinPoint, u, v, normal);
-};
-
-function shellCurve(t: number, point: V3) {
-  const growth = Math.exp(0.05 * t);
-  point[0] = growth * Math.cos(t);
-  point[1] = growth * Math.sin(t);
-  point[2] = -0.4 * growth;
+// 4) twisted torus ("cruller")
+function crullerPoint(u: number, v: number, p: V3) {
+  const Rmaj = 2.5,
+    ex = 0.8,
+    ey = 0.35,
+    twist = 4.0;
+  const a = ex * Math.cos(v),
+    b = ey * Math.sin(v),
+    ang = twist * u;
+  const la = a * Math.cos(ang) - b * Math.sin(ang);
+  const lb = a * Math.sin(ang) + b * Math.cos(ang);
+  p[0] = (Rmaj + la) * Math.cos(u);
+  p[1] = (Rmaj + la) * Math.sin(u);
+  p[2] = lb;
 }
-
-const shellSurface: SurfaceFn = (u, v, point, normal) => {
-  tubeSurface(
-    shellCurve,
-    (t) => 0.18 * Math.exp(0.05 * t),
-    u,
-    v,
-    point,
-    normal,
-  );
-};
-
-function crullerPoint(u: number, v: number, point: V3) {
-  const majorRadius = 2.5;
-  const horizontalRadius = 0.8;
-  const verticalRadius = 0.35;
-  const twist = 4;
-  const a = horizontalRadius * Math.cos(v);
-  const b = verticalRadius * Math.sin(v);
-  const angle = twist * u;
-  const localA = a * Math.cos(angle) - b * Math.sin(angle);
-  const localB = a * Math.sin(angle) + b * Math.cos(angle);
-
-  point[0] = (majorRadius + localA) * Math.cos(u);
-  point[1] = (majorRadius + localA) * Math.sin(u);
-  point[2] = localB;
-}
-
-const crullerSurface: SurfaceFn = (u, v, point, normal) => {
-  crullerPoint(u, v, point);
-  numericNormal(crullerPoint, u, v, normal);
+const surfCruller: SurfFn = (u, v, P, N) => {
+  crullerPoint(u, v, P);
+  numericNormal(crullerPoint, u, v, N);
 };
 
 interface Shape {
@@ -194,141 +184,25 @@ interface Shape {
   vmin: number;
   vmax: number;
   extent: number;
-  surface: SurfaceFn;
+  surf: SurfFn;
 }
 
-const shapes: Shape[] = [
-  { name: "trefoil knot", umin: 0, umax: 2 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 3.7, surface: trefoilSurface },
-  { name: "klein bottle", umin: 0, umax: 2 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 5, surface: kleinSurface },
-  { name: "seashell", umin: 0, umax: 10 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 5.5, surface: shellSurface },
-  { name: "twisted torus", umin: 0, umax: 2 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 3.3, surface: crullerSurface },
+const SHAPES: Shape[] = [
+  { name: "trefoil knot", umin: 0, umax: 2 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 3.7, surf: surfTrefoil },
+  { name: "klein bottle", umin: 0, umax: 2 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 5.0, surf: surfKlein },
+  { name: "seashell", umin: 0, umax: 10 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 5.5, surf: surfShell },
+  { name: "twisted torus", umin: 0, umax: 2 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 3.3, surf: surfCruller },
 ];
 
-interface Raster {
-  width: number;
-  height: number;
-  centerX: number;
-  centerY: number;
-  projectionScale: number;
-  characterAspect: number;
-  uStep: number;
-  vStep: number;
-  screen: Uint8Array;
-  zBuffer: Float32Array;
-}
-
-function createRaster(
-  viewportWidth: number,
-  viewportHeight: number,
-  characterWidth: number,
-  characterHeight: number,
-  shape: Shape,
-): Raster {
-  const width = Math.max(20, Math.floor(viewportWidth / characterWidth));
-  const height = Math.max(10, Math.floor(viewportHeight / characterHeight));
-  const projectionScale =
-    (VIEWPORT_FILL * (height / 2) * VIEWER_DISTANCE) / shape.extent;
-  let uStep =
-    (SAMPLE_SPACING * VIEWER_DISTANCE) / (projectionScale * shape.extent);
-  let vStep = uStep;
-  const uSamples = (shape.umax - shape.umin) / uStep + 1;
-  const vSamples = (shape.vmax - shape.vmin) / vStep + 1;
-  if (uSamples * vSamples > SAMPLE_BUDGET) {
-    const scale = Math.sqrt((uSamples * vSamples) / SAMPLE_BUDGET);
-    uStep *= scale;
-    vStep *= scale;
-  }
-
-  return {
-    width,
-    height,
-    centerX: width / 2,
-    centerY: height / 2,
-    projectionScale,
-    characterAspect: characterHeight / characterWidth,
-    uStep,
-    vStep,
-    screen: new Uint8Array(width * height),
-    zBuffer: new Float32Array(width * height),
-  };
-}
-
-function clearRaster(raster: Raster) {
-  raster.screen.fill(32);
-  raster.zBuffer.fill(0);
-}
-
-function projectPoint(point: V3, raster: Raster) {
-  const cameraZ = point[2] + VIEWER_DISTANCE;
-  if (cameraZ <= 0.1) return null;
-
-  const inverseZ = 1 / cameraZ;
-  const x =
-    (raster.centerX +
-      raster.characterAspect * raster.projectionScale * inverseZ * point[0] +
-      0.5) |
-    0;
-  const y =
-    (raster.centerY - raster.projectionScale * inverseZ * point[1] + 0.5) |
-    0;
-
-  if (x < 0 || x >= raster.width || y < 0 || y >= raster.height) return null;
-  return { x, y, inverseZ, index: x + y * raster.width };
-}
-
-function rotate(point: V3, cosA: number, sinA: number, cosB: number, sinB: number) {
-  const x = point[0];
-  const y = point[1];
-  const z = point[2];
-  const tiltedY = y * cosA - z * sinA;
-  const tiltedZ = y * sinA + z * cosA;
-
-  point[0] = x * cosB + tiltedZ * sinB;
-  point[1] = tiltedY;
-  point[2] = -x * sinB + tiltedZ * cosB;
-}
-
-function renderSurface(shape: Shape, raster: Raster, angleA: number, angleB: number) {
-  clearRaster(raster);
-
-  const cosA = Math.cos(angleA);
-  const sinA = Math.sin(angleA);
-  const cosB = Math.cos(angleB);
-  const sinB = Math.sin(angleB);
-  const point: V3 = [0, 0, 0];
-  const normal: V3 = [0, 0, 0];
-
-  for (let u = shape.umin; u < shape.umax; u += raster.uStep) {
-    for (let v = shape.vmin; v < shape.vmax; v += raster.vStep) {
-      shape.surface(u, v, point, normal);
-      rotate(point, cosA, sinA, cosB, sinB);
-      rotate(normal, cosA, sinA, cosB, sinB);
-
-      const projected = projectPoint(point, raster);
-      if (!projected || projected.inverseZ <= raster.zBuffer[projected.index]) {
-        continue;
-      }
-
-      const luminance = Math.abs(dot3(normal, LIGHT));
-      const rampIndex = Math.max(
-        0,
-        Math.min(LUMINANCE_RAMP.length - 1, Math.round(luminance * 11)),
-      );
-      raster.zBuffer[projected.index] = projected.inverseZ;
-      raster.screen[projected.index] = LUMINANCE_RAMP.charCodeAt(rampIndex);
-    }
-  }
-}
-
-function rasterToString(raster: Raster) {
-  let output = "";
-  for (let row = 0; row < raster.height; row++) {
-    output += String.fromCharCode(
-      ...raster.screen.subarray(row * raster.width, row * raster.width + raster.width),
-    );
-    if (row < raster.height - 1) output += "\n";
-  }
-  return output;
+function rot(P: V3, cA: number, sA: number, cB: number, sB: number) {
+  const X = P[0],
+    Y = P[1],
+    Z = P[2];
+  const y1 = Y * cA - Z * sA,
+    z1 = Y * sA + Z * cA;
+  P[0] = X * cB + z1 * sB;
+  P[1] = y1;
+  P[2] = -X * sB + z1 * cB;
 }
 
 export default function AsciiBackground() {
@@ -338,59 +212,119 @@ export default function AsciiBackground() {
     const pre = preRef.current;
     if (!pre) return;
 
-    const shape = shapes[Math.floor(Math.random() * shapes.length)];
+    const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+
+    // measure one monospace character cell to build the grid
     const probe = document.createElement("span");
     probe.textContent = "0";
-    const style = getComputedStyle(pre);
-    probe.style.cssText = `position:absolute;visibility:hidden;font-family:${style.fontFamily};font-size:${style.fontSize};line-height:${style.lineHeight};white-space:pre;`;
+    const cs = getComputedStyle(pre);
+    probe.style.cssText = `position:absolute;visibility:hidden;font-family:${cs.fontFamily};font-size:${cs.fontSize};line-height:${cs.lineHeight};white-space:pre;`;
     document.body.appendChild(probe);
-    const bounds = probe.getBoundingClientRect();
+    const rect = probe.getBoundingClientRect();
+    const charW = rect.width || 6;
+    const charH = rect.height || 11;
     document.body.removeChild(probe);
-    const characterWidth = bounds.width || 6;
-    const characterHeight = bounds.height || 11;
+    const aspect = charH / charW; // corrects for non-square cells
 
-    let raster = createRaster(
-      window.innerWidth,
-      window.innerHeight,
-      characterWidth,
-      characterHeight,
-      shape,
-    );
-    let angleA = 0;
-    let angleB = 0;
-    let lastFrame = 0;
-    let animationFrame = 0;
+    let W = 0,
+      H = 0,
+      cx = 0,
+      cy = 0,
+      K1 = 0,
+      ustep = 0,
+      vstep = 0;
+    let screen: Uint8Array = new Uint8Array(0);
+    let zbuf: Float32Array = new Float32Array(0);
+
+    function fit() {
+      W = Math.max(20, Math.floor(window.innerWidth / charW));
+      H = Math.max(10, Math.floor(window.innerHeight / charH));
+      cx = W / 2;
+      cy = H / 2;
+      K1 = (FILL * (H / 2) * K2) / shape.extent;
+
+      ustep = vstep = (SAMPLE * K2) / (K1 * shape.extent);
+      const nu = (shape.umax - shape.umin) / ustep + 1;
+      const nv = (shape.vmax - shape.vmin) / vstep + 1;
+      if (nu * nv > BUDGET) {
+        const s = Math.sqrt((nu * nv) / BUDGET);
+        ustep *= s;
+        vstep *= s;
+      }
+      screen = new Uint8Array(W * H);
+      zbuf = new Float32Array(W * H);
+    }
+    fit();
+
+    let A = 0,
+      B = 0;
+    let raf = 0;
+    let last = 0;
+    const P: V3 = [0, 0, 0];
+    const N: V3 = [0, 0, 0];
+    const SPACE = 32;
 
     function frame(now: number) {
-      animationFrame = requestAnimationFrame(frame);
-      if (now - lastFrame < FRAME_INTERVAL) return;
-      lastFrame = now;
-      renderSurface(shape, raster, angleA, angleB);
-      pre.textContent = rasterToString(raster);
-      angleA += 0.03;
-      angleB += 0.02;
+      raf = requestAnimationFrame(frame);
+      if (now - last < FRAME_MS) return;
+      last = now;
+
+      screen.fill(SPACE);
+      zbuf.fill(0);
+      const cA = Math.cos(A),
+        sA = Math.sin(A),
+        cB = Math.cos(B),
+        sB = Math.sin(B);
+
+      for (let u = shape.umin; u < shape.umax; u += ustep) {
+        for (let v = shape.vmin; v < shape.vmax; v += vstep) {
+          shape.surf(u, v, P, N);
+          rot(P, cA, sA, cB, sB);
+          rot(N, cA, sA, cB, sB);
+
+          const zc = P[2] + K2;
+          if (zc <= 0.1) continue;
+          const ooz = 1 / zc;
+          const xp = (cx + aspect * K1 * ooz * P[0] + 0.5) | 0;
+          const yp = (cy - K1 * ooz * P[1] + 0.5) | 0;
+          if (xp < 0 || xp >= W || yp < 0 || yp >= H) continue;
+
+          const i = xp + yp * W;
+          if (ooz > zbuf[i]) {
+            const L = Math.abs(N[0] * LX + N[1] * LY + N[2] * LZ);
+            let li = (L * 11 + 0.5) | 0;
+            if (li < 0) li = 0;
+            else if (li > 11) li = 11;
+            zbuf[i] = ooz;
+            screen[i] = RAMP.charCodeAt(li);
+          }
+        }
+      }
+
+      // assemble the frame string (rows joined by newlines)
+      let out = "";
+      for (let r = 0; r < H; r++) {
+        out += String.fromCharCode(...screen.subarray(r * W, r * W + W));
+        if (r < H - 1) out += "\n";
+      }
+      pre!.textContent = out;
+
+      A += DA;
+      B += DB;
     }
 
-    animationFrame = requestAnimationFrame(frame);
+    raf = requestAnimationFrame(frame);
 
     let resizeTimer = 0;
-    function handleResize() {
+    function onResize() {
       clearTimeout(resizeTimer);
-      resizeTimer = window.setTimeout(() => {
-        raster = createRaster(
-          window.innerWidth,
-          window.innerHeight,
-          characterWidth,
-          characterHeight,
-          shape,
-        );
-      }, 150);
+      resizeTimer = window.setTimeout(fit, 150);
     }
-    window.addEventListener("resize", handleResize);
+    window.addEventListener("resize", onResize);
 
     return () => {
-      cancelAnimationFrame(animationFrame);
-      window.removeEventListener("resize", handleResize);
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onResize);
       clearTimeout(resizeTimer);
     };
   }, []);
