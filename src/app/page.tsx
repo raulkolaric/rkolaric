@@ -8,9 +8,7 @@ const links = [
   { label: "GitHub", href: "https://github.com/raulkolaric" },
   { label: "LinkedIn", href: "https://www.linkedin.com/in/raulkolaric/" },
   { label: "Backup Teams", href: "https://github.com/raulkolaric/backup-teams" },
-  { label: "ICS Parse", href: "https://github.com/raulkolaric/ics-parse" },
-  { label: "Game of Life", href: "https://github.com/raulkolaric/jogo-da-vida-puc" },
-  { label: "PUC Tech Challenge", href: "https://github.com/raulkolaric/puc-tech-challenge" },
+  { label: "ICS Parse", href: "https://github.com/raulkolaric/ics-parse" }
 ];
 
 export default function Home() {
@@ -34,7 +32,7 @@ export default function Home() {
     <main className="page">
       <header className="masthead">
         <h1 className="name">Raul Kolarić</h1>
-        <p className="tagline">Automation, Cloud, Open Source</p>
+        <p className="tagline">Automation, Cloud, Open Source · CS @ PUC-SP</p>
 
         <nav className="links">
           {links.map((link) => (
