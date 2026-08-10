@@ -23,6 +23,7 @@ export default function RootLayout({
       lang="en"
       data-theme="dark"
       className={jetbrainsMono.variable}
+      suppressHydrationWarning
     >
       <body>{children}</body>
     </html>

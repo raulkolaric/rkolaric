@@ -12,10 +12,14 @@ const links = [
 ];
 
 export default function Home() {
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+
+  useEffect(() => {
     const saved = localStorage.getItem("theme");
-    return saved === "light" ? "light" : "dark";
-  });
+    if (saved === "light" || saved === "dark") {
+      setTheme(saved);
+    }
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
