@@ -79,6 +79,26 @@ body {
   opacity: 0.5;
 }
 
+.theme-toggle {
+  position: absolute;
+  top: 2.5rem;
+  right: 2.5rem;
+  z-index: 3;
+  background: none;
+  border: none;
+  color: var(--fg);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem;
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+}
+
+.theme-toggle:hover {
+  opacity: 1;
+}
+
 .footer {
   position: fixed;
   left: 2.5rem;

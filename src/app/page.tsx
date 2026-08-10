@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 const links = [
   { label: "GitHub", href: "https://github.com/raulkolaric" },
   { label: "LinkedIn", href: "https://www.linkedin.com/in/raulkolaric/" },
@@ -8,6 +12,16 @@ const links = [
 ];
 
 export default function Home() {
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const saved = localStorage.getItem("theme");
+    return saved === "light" ? "light" : "dark";
+  });
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
   return (
     <main className="page">
       <header className="masthead">
@@ -27,6 +41,14 @@ export default function Home() {
           ))}
         </nav>
       </header>
+
+      <button
+        className="theme-toggle"
+        onClick={() => setTheme((current) => (current === "light" ? "dark" : "light"))}
+        aria-label="Toggle color theme"
+      >
+        {theme === "light" ? "☾" : "☀"}
+      </button>
 
       <footer className="footer">
         <span className="copyright">© raulkolaric</span>
