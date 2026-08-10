@@ -8,8 +8,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Portfolio",
-  description: "Personal portfolio",
+  title: "Raul Kolarić",
+  description:
+    "Full Stack Developer and Computer Science student at PUC-SP in São Paulo, Brazil.",
 };
 
 export default function RootLayout({
