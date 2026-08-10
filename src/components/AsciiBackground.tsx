@@ -107,6 +107,37 @@ function tubeSurface(
   }
 }
 
+function trefoilCurve(t: number, point: V3) {
+  const p = 2;
+  const q = 3;
+  const radius = 2 + Math.cos(q * t);
+  point[0] = radius * Math.cos(p * t);
+  point[1] = radius * Math.sin(p * t);
+  point[2] = -Math.sin(q * t);
+}
+
+const trefoilSurface: SurfaceFn = (u, v, point, normal) => {
+  tubeSurface(trefoilCurve, () => 0.5, u, v, point, normal);
+};
+
+function kleinPoint(u: number, v: number, point: V3) {
+  const radius = 2.5;
+  const cosHalfU = Math.cos(u / 2);
+  const sinHalfU = Math.sin(u / 2);
+  const sinV = Math.sin(v);
+  const sinDoubleV = Math.sin(2 * v);
+  const ring = radius + cosHalfU * sinV - sinHalfU * sinDoubleV;
+
+  point[0] = ring * Math.cos(u);
+  point[1] = ring * Math.sin(u);
+  point[2] = sinHalfU * sinV + cosHalfU * sinDoubleV;
+}
+
+const kleinSurface: SurfaceFn = (u, v, point, normal) => {
+  kleinPoint(u, v, point);
+  numericNormal(kleinPoint, u, v, normal);
+};
+
 function rotate(point: V3, cosA: number, sinA: number, cosB: number, sinB: number) {
   const x = point[0];
   const y = point[1];
