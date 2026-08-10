@@ -359,9 +359,10 @@ export default function AsciiBackground() {
     let angleA = 0;
     let angleB = 0;
     let lastFrame = 0;
+    let animationFrame = 0;
 
     function frame(now: number) {
-      requestAnimationFrame(frame);
+      animationFrame = requestAnimationFrame(frame);
       if (now - lastFrame < FRAME_INTERVAL) return;
       lastFrame = now;
       renderSurface(shape, raster, angleA, angleB);
@@ -370,16 +371,28 @@ export default function AsciiBackground() {
       angleB += 0.02;
     }
 
-    requestAnimationFrame(frame);
-    window.addEventListener("resize", () => {
-      raster = createRaster(
-        window.innerWidth,
-        window.innerHeight,
-        characterWidth,
-        characterHeight,
-        shape,
-      );
-    });
+    animationFrame = requestAnimationFrame(frame);
+
+    let resizeTimer = 0;
+    function handleResize() {
+      clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        raster = createRaster(
+          window.innerWidth,
+          window.innerHeight,
+          characterWidth,
+          characterHeight,
+          shape,
+        );
+      }, 150);
+    }
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(resizeTimer);
+    };
   }, []);
 
   return (
