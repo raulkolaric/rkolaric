@@ -6,10 +6,32 @@
   padding: 0;
 }
 
+:root {
+  --bg: #ffffff;
+  --fg: #111111;
+  --muted: #6b6b6b;
+  --accent: #16a34a;
+}
+
+:root[data-theme="dark"] {
+  --bg: #000000;
+  --fg: #eaeaea;
+  --muted: #888888;
+  --accent: #22c55e;
+}
+
 html {
   scroll-behavior: smooth;
 }
 
 body {
   min-height: 100vh;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-jetbrains-mono), "SF Mono", "Menlo", "Consolas",
+    monospace;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.2s ease, color 0.2s ease;
 }
