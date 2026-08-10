@@ -3,6 +3,8 @@
 const VIEWER_DISTANCE = 11;
 const VIEWPORT_FILL = 0.62;
 const SAMPLE_SPACING = 0.4;
+const LUMINANCE_RAMP = ".,-~:;=!*#$@";
+const LIGHT: V3 = [0, 0.70710678, -0.70710678];
 
 type V3 = [number, number, number];
 
@@ -268,4 +270,47 @@ function rotate(point: V3, cosA: number, sinA: number, cosB: number, sinB: numbe
   point[0] = x * cosB + tiltedZ * sinB;
   point[1] = tiltedY;
   point[2] = -x * sinB + tiltedZ * cosB;
+}
+
+function renderSurface(shape: Shape, raster: Raster, angleA: number, angleB: number) {
+  clearRaster(raster);
+
+  const cosA = Math.cos(angleA);
+  const sinA = Math.sin(angleA);
+  const cosB = Math.cos(angleB);
+  const sinB = Math.sin(angleB);
+  const point: V3 = [0, 0, 0];
+  const normal: V3 = [0, 0, 0];
+
+  for (let u = shape.umin; u < shape.umax; u += raster.uStep) {
+    for (let v = shape.vmin; v < shape.vmax; v += raster.vStep) {
+      shape.surface(u, v, point, normal);
+      rotate(point, cosA, sinA, cosB, sinB);
+      rotate(normal, cosA, sinA, cosB, sinB);
+
+      const projected = projectPoint(point, raster);
+      if (!projected || projected.inverseZ <= raster.zBuffer[projected.index]) {
+        continue;
+      }
+
+      const luminance = Math.abs(dot3(normal, LIGHT));
+      const rampIndex = Math.max(
+        0,
+        Math.min(LUMINANCE_RAMP.length - 1, Math.round(luminance * 11)),
+      );
+      raster.zBuffer[projected.index] = projected.inverseZ;
+      raster.screen[projected.index] = LUMINANCE_RAMP.charCodeAt(rampIndex);
+    }
+  }
+}
+
+function rasterToString(raster: Raster) {
+  let output = "";
+  for (let row = 0; row < raster.height; row++) {
+    output += String.fromCharCode(
+      ...raster.screen.subarray(row * raster.width, row * raster.width + raster.width),
+    );
+    if (row < raster.height - 1) output += "\n";
+  }
+  return output;
 }
