@@ -5,6 +5,8 @@ import { useEffect, useRef } from "react";
 const VIEWER_DISTANCE = 11;
 const VIEWPORT_FILL = 0.62;
 const SAMPLE_SPACING = 0.4;
+const SAMPLE_BUDGET = 130000;
+const FRAME_INTERVAL = 33;
 const LUMINANCE_RAMP = ".,-~:;=!*#$@";
 const LIGHT: V3 = [0, 0.70710678, -0.70710678];
 
@@ -226,8 +228,16 @@ function createRaster(
   const height = Math.max(10, Math.floor(viewportHeight / characterHeight));
   const projectionScale =
     (VIEWPORT_FILL * (height / 2) * VIEWER_DISTANCE) / shape.extent;
-  const step =
+  let uStep =
     (SAMPLE_SPACING * VIEWER_DISTANCE) / (projectionScale * shape.extent);
+  let vStep = uStep;
+  const uSamples = (shape.umax - shape.umin) / uStep + 1;
+  const vSamples = (shape.vmax - shape.vmin) / vStep + 1;
+  if (uSamples * vSamples > SAMPLE_BUDGET) {
+    const scale = Math.sqrt((uSamples * vSamples) / SAMPLE_BUDGET);
+    uStep *= scale;
+    vStep *= scale;
+  }
 
   return {
     width,
@@ -236,8 +246,8 @@ function createRaster(
     centerY: height / 2,
     projectionScale,
     characterAspect: characterHeight / characterWidth,
-    uStep: step,
-    vStep: step,
+    uStep,
+    vStep,
     screen: new Uint8Array(width * height),
     zBuffer: new Float32Array(width * height),
   };
@@ -348,13 +358,16 @@ export default function AsciiBackground() {
     );
     let angleA = 0;
     let angleB = 0;
+    let lastFrame = 0;
 
-    function frame() {
+    function frame(now: number) {
+      requestAnimationFrame(frame);
+      if (now - lastFrame < FRAME_INTERVAL) return;
+      lastFrame = now;
       renderSurface(shape, raster, angleA, angleB);
       pre.textContent = rasterToString(raster);
       angleA += 0.03;
       angleB += 0.02;
-      requestAnimationFrame(frame);
     }
 
     requestAnimationFrame(frame);
