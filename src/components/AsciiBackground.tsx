@@ -245,11 +245,20 @@ const SHAPES: Shape[] = [
 
 const TESSERACT_HALF_SIZE = 1.2;
 const TESSERACT_W_DISTANCE = 4.0;
+const TESSERACT_EDGE_RADIUS = 0.16;
+const TESSERACT_EDGE_SIDES = 12;
 const TESSERACT_VERTICES: V4[] = [];
-const TESSERACT_EDGES: Array<[number, number, number]> = [];
+const TESSERACT_EDGES: Array<[number, number]> = [];
+const TESSERACT_RING = Array.from(
+  { length: TESSERACT_EDGE_SIDES },
+  (_, side): [number, number] => {
+    const angle = (side / TESSERACT_EDGE_SIDES) * 2 * Math.PI;
+    return [Math.cos(angle), Math.sin(angle)];
+  }
+);
 
 // Four sign bits describe the 16 vertices. Flipping any one bit produces
-// one of the tesseract's 32 edges; the final tuple value is its 4D axis.
+// one of the tesseract's 32 edges.
 for (let vertex = 0; vertex < 16; vertex++) {
   TESSERACT_VERTICES.push([
     vertex & 1 ? TESSERACT_HALF_SIZE : -TESSERACT_HALF_SIZE,
@@ -260,7 +269,7 @@ for (let vertex = 0; vertex < 16; vertex++) {
 
   for (let axis = 0; axis < 4; axis++) {
     const neighbor = vertex ^ (1 << axis);
-    if (vertex < neighbor) TESSERACT_EDGES.push([vertex, neighbor, axis]);
+    if (vertex < neighbor) TESSERACT_EDGES.push([vertex, neighbor]);
   }
 }
 
@@ -440,14 +449,17 @@ export default function AsciiBackground() {
         projected[2] = ooz;
       }
 
-      for (const [from, to, axis] of TESSERACT_EDGES) {
+      // Sweep a small shaded cylinder around every edge. This gives the
+      // wireframe real width and lets it use the same normal-based lighting
+      // as the smooth surfaces instead of approximating light per line.
+      for (const [from, to] of TESSERACT_EDGES) {
         const a = tesseractScreen[from];
         const b = tesseractScreen[to];
         const dx = b[0] - a[0];
         const dy = b[1] - a[1];
         const steps = Math.max(
           1,
-          Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) * 1.25)
+          Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) * 1.5)
         );
 
         const p0 = tesseract3[from];
@@ -456,30 +468,53 @@ export default function AsciiBackground() {
         const ey = p1[1] - p0[1];
         const ez = p1[2] - p0[2];
         const edgeLength = Math.hypot(ex, ey, ez) || 1;
-        const lightAlongEdge =
-          (ex * LX + ey * LY + ez * LZ) / edgeLength;
-        const light = Math.sqrt(
-          Math.max(0, 1 - lightAlongEdge * lightAlongEdge)
-        );
+        const tx = ex / edgeLength;
+        const ty = ey / edgeLength;
+        const tz = ez / edgeLength;
+
+        // Construct a stable orthonormal frame around the edge tangent.
+        let nx = Math.abs(tz) < 0.9 ? ty : -tz;
+        let ny = Math.abs(tz) < 0.9 ? -tx : 0;
+        let nz = Math.abs(tz) < 0.9 ? 0 : tx;
+        const normalLength = Math.hypot(nx, ny, nz) || 1;
+        nx /= normalLength;
+        ny /= normalLength;
+        nz /= normalLength;
+        const bx = ty * nz - tz * ny;
+        const by = tz * nx - tx * nz;
+        const bz = tx * ny - ty * nx;
 
         for (let step = 0; step <= steps; step++) {
           const t = step / steps;
-          const xp = Math.round(a[0] + dx * t);
-          const yp = Math.round(a[1] + dy * t);
-          if (xp < 0 || xp >= W || yp < 0 || yp >= H) continue;
+          const centerX = p0[0] + ex * t;
+          const centerY = p0[1] + ey * t;
+          const centerZ = p0[2] + ez * t;
 
-          const ooz = a[2] + (b[2] - a[2]) * t;
-          const i = xp + yp * W;
-          if (ooz <= zbuf[i]) continue;
+          for (const [cv, sv] of TESSERACT_RING) {
+            N[0] = cv * nx + sv * bx;
+            N[1] = cv * ny + sv * by;
+            N[2] = cv * nz + sv * bz;
+            P[0] = centerX + TESSERACT_EDGE_RADIUS * N[0];
+            P[1] = centerY + TESSERACT_EDGE_RADIUS * N[1];
+            P[2] = centerZ + TESSERACT_EDGE_RADIUS * N[2];
 
-          const depth = Math.max(0, Math.min(1, (ooz * K2 - 0.72) / 0.5));
-          const intensity = Math.min(
-            1,
-            0.18 + light * 0.48 + depth * 0.28 + axis * 0.02
-          );
-          const li = Math.round(intensity * (RAMP.length - 1));
-          zbuf[i] = ooz;
-          screen[i] = RAMP.charCodeAt(li);
+            const zc = P[2] + K2;
+            const ooz = 1 / zc;
+            const xp = Math.round(cx + aspect * K1 * ooz * P[0]);
+            const yp = Math.round(cy - K1 * ooz * P[1]);
+            if (xp < 0 || xp >= W || yp < 0 || yp >= H) continue;
+
+            const i = xp + yp * W;
+            if (ooz <= zbuf[i]) continue;
+
+            const diffuse = Math.abs(
+              N[0] * LX + N[1] * LY + N[2] * LZ
+            );
+            const light = 0.12 + diffuse * 0.88;
+            const li = Math.round(light * (RAMP.length - 1));
+            zbuf[i] = ooz;
+            screen[i] = RAMP.charCodeAt(li);
+          }
         }
       }
 
