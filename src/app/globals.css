@@ -99,6 +99,25 @@ body {
   opacity: 1;
 }
 
+.stage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.ascii-art {
+  font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.75rem;
+  line-height: 1.1;
+  color: var(--accent);
+  white-space: pre;
+  text-align: center;
+}
+
 .footer {
   position: fixed;
   left: 2.5rem;

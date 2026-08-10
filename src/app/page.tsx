@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AsciiBackground from "@/components/AsciiBackground";
 
 const links = [
   { label: "GitHub", href: "https://github.com/raulkolaric" },
@@ -53,6 +54,10 @@ export default function Home() {
       >
         {theme === "light" ? "☾" : "☀"}
       </button>
+
+      <div className="stage">
+        <AsciiBackground />
+      </div>
 
       <footer className="footer">
         <span className="copyright">© raulkolaric</span>

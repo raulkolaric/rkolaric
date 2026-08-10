@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 const VIEWER_DISTANCE = 11;
 const VIEWPORT_FILL = 0.62;
 const SAMPLE_SPACING = 0.4;
@@ -313,4 +315,57 @@ function rasterToString(raster: Raster) {
     if (row < raster.height - 1) output += "\n";
   }
   return output;
+}
+
+export default function AsciiBackground() {
+  const preRef = useRef<HTMLPreElement>(null);
+
+  useEffect(() => {
+    const pre = preRef.current;
+    if (!pre) return;
+
+    const shape = shapes[Math.floor(Math.random() * shapes.length)];
+    const probe = document.createElement("span");
+    probe.textContent = "0";
+    const style = getComputedStyle(pre);
+    probe.style.cssText = `position:absolute;visibility:hidden;font-family:${style.fontFamily};font-size:${style.fontSize};line-height:${style.lineHeight};white-space:pre;`;
+    document.body.appendChild(probe);
+    const bounds = probe.getBoundingClientRect();
+    document.body.removeChild(probe);
+    const characterWidth = bounds.width || 6;
+    const characterHeight = bounds.height || 11;
+
+    let raster = createRaster(
+      window.innerWidth,
+      window.innerHeight,
+      characterWidth,
+      characterHeight,
+      shape,
+    );
+    let angleA = 0;
+    let angleB = 0;
+
+    function frame() {
+      renderSurface(shape, raster, angleA, angleB);
+      pre.textContent = rasterToString(raster);
+      angleA += 0.03;
+      angleB += 0.02;
+      requestAnimationFrame(frame);
+    }
+
+    requestAnimationFrame(frame);
+    window.addEventListener("resize", () => {
+      raster = createRaster(
+        window.innerWidth,
+        window.innerHeight,
+        characterWidth,
+        characterHeight,
+        shape,
+      );
+    });
+  }, []);
+
+  return (
+    <pre ref={preRef} id="ascii-art" className="ascii-art" aria-hidden="true" />
+  );
 }
