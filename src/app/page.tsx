@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AsciiBackground from "@/components/AsciiBackground";
+import BrasiliaClock from "@/components/BrasiliaClock";
 
 // Left-column links. Add/remove freely — order is preserved.
 const links = [
@@ -64,6 +65,8 @@ export default function Home() {
       <footer className="footer">
         <span className="copyright">© raulkolaric</span>
       </footer>
+
+      <BrasiliaClock />
     </main>
   );
 }
