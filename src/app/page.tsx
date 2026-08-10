@@ -34,7 +34,7 @@ export default function Home() {
     <main className="page">
       <header className="masthead">
         <h1 className="name">Raul Kolarić</h1>
-        <p className="tagline">Full Stack Developer · CS @ PUC-SP</p>
+        <p className="tagline">Automation, Cloud, Open Source</p>
 
         <nav className="links">
           {links.map((link) => (

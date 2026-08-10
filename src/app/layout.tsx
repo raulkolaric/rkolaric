@@ -10,8 +10,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Raul Kolarić",
-  description:
-    "Full Stack Developer and Computer Science student at PUC-SP in São Paulo, Brazil.",
+  description: "Automation, Cloud, Open Source",
 };
 
 export default function RootLayout({
