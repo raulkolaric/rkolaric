@@ -208,6 +208,7 @@ interface Raster {
   centerX: number;
   centerY: number;
   projectionScale: number;
+  characterAspect: number;
   uStep: number;
   vStep: number;
   screen: Uint8Array;
@@ -234,6 +235,7 @@ function createRaster(
     centerX: width / 2,
     centerY: height / 2,
     projectionScale,
+    characterAspect: characterHeight / characterWidth,
     uStep: step,
     vStep: step,
     screen: new Uint8Array(width * height),
@@ -252,7 +254,9 @@ function projectPoint(point: V3, raster: Raster) {
 
   const inverseZ = 1 / cameraZ;
   const x =
-    (raster.centerX + raster.projectionScale * inverseZ * point[0] + 0.5) |
+    (raster.centerX +
+      raster.characterAspect * raster.projectionScale * inverseZ * point[0] +
+      0.5) |
     0;
   const y =
     (raster.centerY - raster.projectionScale * inverseZ * point[1] + 0.5) |
