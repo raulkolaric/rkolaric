@@ -62,11 +62,13 @@ export default function Home() {
         <AsciiBackground />
       </div>
 
-      <footer className="footer">
-        <span className="copyright">© raulkolaric</span>
-      </footer>
+      <div className="bottom-bar">
+        <footer className="footer">
+          <span className="copyright">© raulkolaric</span>
+        </footer>
 
-      <BrasiliaClock />
+        <BrasiliaClock />
+      </div>
     </main>
   );
 }
