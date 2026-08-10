@@ -138,6 +138,62 @@ const kleinSurface: SurfaceFn = (u, v, point, normal) => {
   numericNormal(kleinPoint, u, v, normal);
 };
 
+function shellCurve(t: number, point: V3) {
+  const growth = Math.exp(0.05 * t);
+  point[0] = growth * Math.cos(t);
+  point[1] = growth * Math.sin(t);
+  point[2] = -0.4 * growth;
+}
+
+const shellSurface: SurfaceFn = (u, v, point, normal) => {
+  tubeSurface(
+    shellCurve,
+    (t) => 0.18 * Math.exp(0.05 * t),
+    u,
+    v,
+    point,
+    normal,
+  );
+};
+
+function crullerPoint(u: number, v: number, point: V3) {
+  const majorRadius = 2.5;
+  const horizontalRadius = 0.8;
+  const verticalRadius = 0.35;
+  const twist = 4;
+  const a = horizontalRadius * Math.cos(v);
+  const b = verticalRadius * Math.sin(v);
+  const angle = twist * u;
+  const localA = a * Math.cos(angle) - b * Math.sin(angle);
+  const localB = a * Math.sin(angle) + b * Math.cos(angle);
+
+  point[0] = (majorRadius + localA) * Math.cos(u);
+  point[1] = (majorRadius + localA) * Math.sin(u);
+  point[2] = localB;
+}
+
+const crullerSurface: SurfaceFn = (u, v, point, normal) => {
+  crullerPoint(u, v, point);
+  numericNormal(crullerPoint, u, v, normal);
+};
+
+interface Shape {
+  name: string;
+  umin: number;
+  umax: number;
+  vmin: number;
+  vmax: number;
+  extent: number;
+  surface: SurfaceFn;
+}
+
+const shapes: Shape[] = [
+  { name: "trefoil knot", umin: 0, umax: 2 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 3.7, surface: trefoilSurface },
+  { name: "klein bottle", umin: 0, umax: 2 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 5, surface: kleinSurface },
+  { name: "seashell", umin: 0, umax: 10 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 5.5, surface: shellSurface },
+  { name: "twisted torus", umin: 0, umax: 2 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 3.3, surface: crullerSurface },
+];
+
 function rotate(point: V3, cosA: number, sinA: number, cosB: number, sinB: number) {
   const x = point[0];
   const y = point[1];
