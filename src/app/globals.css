@@ -35,3 +35,58 @@ body {
   -webkit-font-smoothing: antialiased;
   transition: background 0.2s ease, color 0.2s ease;
 }
+
+.page {
+  position: relative;
+  min-height: 100vh;
+  padding: 2.5rem;
+}
+
+.masthead {
+  position: relative;
+  z-index: 2;
+}
+
+.name {
+  font-size: 2rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.tagline {
+  color: var(--muted);
+  font-size: 1rem;
+  margin-top: 0.15rem;
+  margin-bottom: 1.75rem;
+}
+
+.links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+
+.links a {
+  color: var(--fg);
+  text-decoration: none;
+  font-size: 1rem;
+  transition: opacity 0.15s ease;
+}
+
+.links a:hover {
+  opacity: 0.5;
+}
+
+.footer {
+  position: fixed;
+  left: 2.5rem;
+  bottom: 2rem;
+  z-index: 2;
+}
+
+.copyright {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
