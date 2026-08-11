@@ -240,7 +240,8 @@ const SHAPES: Shape[] = [
     extent: 3.3,
     surf: surfCruller,
   },
-  { kind: "tesseract", name: "tesseract", extent: 3.3 },
+  // Temporarily disabled; keep the implementation below for reactivation.
+  // { kind: "tesseract", name: "tesseract", extent: 3.3 },
 ];
 
 const TESSERACT_HALF_SIZE = 1.2;
