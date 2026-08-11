@@ -3,14 +3,15 @@
 import { useEffect, useRef } from "react";
 
 /*
- * Port of shapes.c — spinning, shaded ASCII 3D shapes.
- * Same engine (z-buffer + normal-based shading, auto-fit to the viewport).
- * One of the four shapes is chosen at random on each mount (page load).
+ * Port of shapes.c — spinning, shaded ASCII shapes.
+ * Smooth 3D surfaces and a projected 4D wireframe share the same z-buffer,
+ * perspective camera, and viewport fitting. One shape is chosen per page load.
  */
 
 // ─── global look/motion knobs (from shapes.c) ──────────────────────────────
 const K2 = 11.0; // viewer distance (perspective strength)
 const FILL = 0.62; // fraction of viewport height the shape fills
+const WIDTH_FILL = 0.88; // fraction of viewport width available on narrow screens
 const SAMPLE = 0.4; // target on-screen sample spacing, in cells
 const BUDGET = 130000; // max surface samples per frame (caps CPU cost)
 const DA = 0.03; // tilt speed per rendered frame
@@ -24,6 +25,7 @@ const LZ = -0.70710678;
 
 // ─── tiny 3D vector helpers ────────────────────────────────────────────────
 type V3 = [number, number, number];
+type V4 = [number, number, number, number];
 
 function dot3(a: V3, b: V3) {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -177,22 +179,99 @@ const surfCruller: SurfFn = (u, v, P, N) => {
   numericNormal(crullerPoint, u, v, N);
 };
 
-interface Shape {
+interface ShapeBase {
   name: string;
+  extent: number;
+}
+
+interface SurfaceShape extends ShapeBase {
+  kind: "surface";
   umin: number;
   umax: number;
   vmin: number;
   vmax: number;
-  extent: number;
   surf: SurfFn;
 }
 
+interface TesseractShape extends ShapeBase {
+  kind: "tesseract";
+}
+
+type Shape = SurfaceShape | TesseractShape;
+
 const SHAPES: Shape[] = [
-  { name: "trefoil knot", umin: 0, umax: 2 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 3.7, surf: surfTrefoil },
-  { name: "klein bottle", umin: 0, umax: 2 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 5.0, surf: surfKlein },
-  { name: "seashell", umin: 0, umax: 10 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 5.5, surf: surfShell },
-  { name: "twisted torus", umin: 0, umax: 2 * Math.PI, vmin: 0, vmax: 2 * Math.PI, extent: 3.3, surf: surfCruller },
+  {
+    kind: "surface",
+    name: "trefoil knot",
+    umin: 0,
+    umax: 2 * Math.PI,
+    vmin: 0,
+    vmax: 2 * Math.PI,
+    extent: 3.7,
+    surf: surfTrefoil,
+  },
+  {
+    kind: "surface",
+    name: "klein bottle",
+    umin: 0,
+    umax: 2 * Math.PI,
+    vmin: 0,
+    vmax: 2 * Math.PI,
+    extent: 5.0,
+    surf: surfKlein,
+  },
+  {
+    kind: "surface",
+    name: "seashell",
+    umin: 0,
+    umax: 10 * Math.PI,
+    vmin: 0,
+    vmax: 2 * Math.PI,
+    extent: 5.5,
+    surf: surfShell,
+  },
+  {
+    kind: "surface",
+    name: "twisted torus",
+    umin: 0,
+    umax: 2 * Math.PI,
+    vmin: 0,
+    vmax: 2 * Math.PI,
+    extent: 3.3,
+    surf: surfCruller,
+  },
+  { kind: "tesseract", name: "tesseract", extent: 3.3 },
 ];
+
+const TESSERACT_HALF_SIZE = 1.2;
+const TESSERACT_W_DISTANCE = 4.0;
+const TESSERACT_EDGE_RADIUS = 0.16;
+const TESSERACT_EDGE_SIDES = 12;
+const TESSERACT_VERTICES: V4[] = [];
+const TESSERACT_EDGES: Array<[number, number]> = [];
+const TESSERACT_RING = Array.from(
+  { length: TESSERACT_EDGE_SIDES },
+  (_, side): [number, number] => {
+    const angle = (side / TESSERACT_EDGE_SIDES) * 2 * Math.PI;
+    return [Math.cos(angle), Math.sin(angle)];
+  }
+);
+
+// Four sign bits describe the 16 vertices. Flipping any one bit produces
+// one of the tesseract's 32 edges.
+for (let vertex = 0; vertex < 16; vertex++) {
+  TESSERACT_VERTICES.push([
+    vertex & 1 ? TESSERACT_HALF_SIZE : -TESSERACT_HALF_SIZE,
+    vertex & 2 ? TESSERACT_HALF_SIZE : -TESSERACT_HALF_SIZE,
+    vertex & 4 ? TESSERACT_HALF_SIZE : -TESSERACT_HALF_SIZE,
+    vertex & 8 ? TESSERACT_HALF_SIZE : -TESSERACT_HALF_SIZE,
+  ]);
+
+  for (let axis = 0; axis < 4; axis++) {
+    const neighbor = vertex ^ (1 << axis);
+    if (vertex < neighbor) TESSERACT_EDGES.push([vertex, neighbor]);
+  }
+}
 
 function rot(P: V3, cA: number, sA: number, cB: number, sB: number) {
   const X = P[0],
@@ -205,6 +284,19 @@ function rot(P: V3, cA: number, sA: number, cB: number, sB: number) {
   P[2] = -X * sB + z1 * cB;
 }
 
+function rot4(
+  P: V4,
+  axisA: number,
+  axisB: number,
+  c: number,
+  s: number
+) {
+  const a = P[axisA];
+  const b = P[axisB];
+  P[axisA] = a * c - b * s;
+  P[axisB] = a * s + b * c;
+}
+
 export default function AsciiBackground() {
   const preRef = useRef<HTMLPreElement>(null);
 
@@ -212,7 +304,13 @@ export default function AsciiBackground() {
     const pre = preRef.current;
     if (!pre) return;
 
-    const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+    const requestedShape = new URLSearchParams(window.location.search).get(
+      "shape"
+    );
+    const shape =
+      SHAPES.find(({ name }) => name === requestedShape) ??
+      SHAPES[Math.floor(Math.random() * SHAPES.length)];
+    pre.dataset.shape = shape.name;
 
     // measure one monospace character cell to build the grid
     const probe = document.createElement("span");
@@ -241,15 +339,21 @@ export default function AsciiBackground() {
       H = Math.max(10, Math.floor(window.innerHeight / charH));
       cx = W / 2;
       cy = H / 2;
-      K1 = (FILL * (H / 2) * K2) / shape.extent;
+      const fitRadius = Math.min(
+        FILL * (H / 2),
+        WIDTH_FILL * (W / (2 * aspect))
+      );
+      K1 = (fitRadius * K2) / shape.extent;
 
-      ustep = vstep = (SAMPLE * K2) / (K1 * shape.extent);
-      const nu = (shape.umax - shape.umin) / ustep + 1;
-      const nv = (shape.vmax - shape.vmin) / vstep + 1;
-      if (nu * nv > BUDGET) {
-        const s = Math.sqrt((nu * nv) / BUDGET);
-        ustep *= s;
-        vstep *= s;
+      if (shape.kind === "surface") {
+        ustep = vstep = (SAMPLE * K2) / (K1 * shape.extent);
+        const nu = (shape.umax - shape.umin) / ustep + 1;
+        const nv = (shape.vmax - shape.vmin) / vstep + 1;
+        if (nu * nv > BUDGET) {
+          const s = Math.sqrt((nu * nv) / BUDGET);
+          ustep *= s;
+          vstep *= s;
+        }
       }
       screen = new Uint8Array(W * H);
       zbuf = new Float32Array(W * H);
@@ -262,23 +366,24 @@ export default function AsciiBackground() {
     let last = 0;
     const P: V3 = [0, 0, 0];
     const N: V3 = [0, 0, 0];
+    const Q: V4 = [0, 0, 0, 0];
+    const tesseract3 = Array.from({ length: 16 }, (): V3 => [0, 0, 0]);
+    const tesseractScreen = Array.from(
+      { length: 16 },
+      (): V3 => [0, 0, 0]
+    );
     const SPACE = 32;
 
-    function frame(now: number) {
-      raf = requestAnimationFrame(frame);
-      if (now - last < FRAME_MS) return;
-      last = now;
-
-      screen.fill(SPACE);
-      zbuf.fill(0);
-      const cA = Math.cos(A),
-        sA = Math.sin(A),
-        cB = Math.cos(B),
-        sB = Math.sin(B);
-
-      for (let u = shape.umin; u < shape.umax; u += ustep) {
-        for (let v = shape.vmin; v < shape.vmax; v += vstep) {
-          shape.surf(u, v, P, N);
+    function renderSurface(
+      surface: SurfaceShape,
+      cA: number,
+      sA: number,
+      cB: number,
+      sB: number
+    ) {
+      for (let u = surface.umin; u < surface.umax; u += ustep) {
+        for (let v = surface.vmin; v < surface.vmax; v += vstep) {
+          surface.surf(u, v, P, N);
           rot(P, cA, sA, cB, sB);
           rot(N, cA, sA, cB, sB);
 
@@ -300,6 +405,147 @@ export default function AsciiBackground() {
           }
         }
       }
+    }
+
+    function renderTesseract(
+      cA: number,
+      sA: number,
+      cB: number,
+      sB: number
+    ) {
+      // Rotate through three planes containing W, then perspective-project
+      // from 4D to 3D. The ordinary camera rotation happens after that.
+      const angleXW = A * 0.73;
+      const angleYW = B * 0.91;
+      const angleZW = (A + B) * 0.37;
+      const cXW = Math.cos(angleXW);
+      const sXW = Math.sin(angleXW);
+      const cYW = Math.cos(angleYW);
+      const sYW = Math.sin(angleYW);
+      const cZW = Math.cos(angleZW);
+      const sZW = Math.sin(angleZW);
+
+      for (let vertex = 0; vertex < TESSERACT_VERTICES.length; vertex++) {
+        const source = TESSERACT_VERTICES[vertex];
+        Q[0] = source[0];
+        Q[1] = source[1];
+        Q[2] = source[2];
+        Q[3] = source[3];
+        rot4(Q, 0, 3, cXW, sXW);
+        rot4(Q, 1, 3, cYW, sYW);
+        rot4(Q, 2, 3, cZW, sZW);
+
+        const scale4 = TESSERACT_W_DISTANCE / (TESSERACT_W_DISTANCE - Q[3]);
+        const point = tesseract3[vertex];
+        point[0] = Q[0] * scale4;
+        point[1] = Q[1] * scale4;
+        point[2] = Q[2] * scale4;
+        rot(point, cA, sA, cB, sB);
+
+        const ooz = 1 / (point[2] + K2);
+        const projected = tesseractScreen[vertex];
+        projected[0] = cx + aspect * K1 * ooz * point[0];
+        projected[1] = cy - K1 * ooz * point[1];
+        projected[2] = ooz;
+      }
+
+      // Sweep a small shaded cylinder around every edge. This gives the
+      // wireframe real width and lets it use the same normal-based lighting
+      // as the smooth surfaces instead of approximating light per line.
+      for (const [from, to] of TESSERACT_EDGES) {
+        const a = tesseractScreen[from];
+        const b = tesseractScreen[to];
+        const dx = b[0] - a[0];
+        const dy = b[1] - a[1];
+        const steps = Math.max(
+          1,
+          Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) * 1.5)
+        );
+
+        const p0 = tesseract3[from];
+        const p1 = tesseract3[to];
+        const ex = p1[0] - p0[0];
+        const ey = p1[1] - p0[1];
+        const ez = p1[2] - p0[2];
+        const edgeLength = Math.hypot(ex, ey, ez) || 1;
+        const tx = ex / edgeLength;
+        const ty = ey / edgeLength;
+        const tz = ez / edgeLength;
+
+        // Construct a stable orthonormal frame around the edge tangent.
+        let nx = Math.abs(tz) < 0.9 ? ty : -tz;
+        let ny = Math.abs(tz) < 0.9 ? -tx : 0;
+        let nz = Math.abs(tz) < 0.9 ? 0 : tx;
+        const normalLength = Math.hypot(nx, ny, nz) || 1;
+        nx /= normalLength;
+        ny /= normalLength;
+        nz /= normalLength;
+        const bx = ty * nz - tz * ny;
+        const by = tz * nx - tx * nz;
+        const bz = tx * ny - ty * nx;
+
+        for (let step = 0; step <= steps; step++) {
+          const t = step / steps;
+          const centerX = p0[0] + ex * t;
+          const centerY = p0[1] + ey * t;
+          const centerZ = p0[2] + ez * t;
+
+          for (const [cv, sv] of TESSERACT_RING) {
+            N[0] = cv * nx + sv * bx;
+            N[1] = cv * ny + sv * by;
+            N[2] = cv * nz + sv * bz;
+            P[0] = centerX + TESSERACT_EDGE_RADIUS * N[0];
+            P[1] = centerY + TESSERACT_EDGE_RADIUS * N[1];
+            P[2] = centerZ + TESSERACT_EDGE_RADIUS * N[2];
+
+            const zc = P[2] + K2;
+            const ooz = 1 / zc;
+            const xp = Math.round(cx + aspect * K1 * ooz * P[0]);
+            const yp = Math.round(cy - K1 * ooz * P[1]);
+            if (xp < 0 || xp >= W || yp < 0 || yp >= H) continue;
+
+            const i = xp + yp * W;
+            if (ooz <= zbuf[i]) continue;
+
+            const diffuse = Math.abs(
+              N[0] * LX + N[1] * LY + N[2] * LZ
+            );
+            const light = 0.12 + diffuse * 0.88;
+            const li = Math.round(light * (RAMP.length - 1));
+            zbuf[i] = ooz;
+            screen[i] = RAMP.charCodeAt(li);
+          }
+        }
+      }
+
+      // Bright vertices make the 16 corners legible without hiding crossings
+      // that are actually closer to the camera.
+      for (const vertex of tesseractScreen) {
+        const xp = Math.round(vertex[0]);
+        const yp = Math.round(vertex[1]);
+        if (xp < 0 || xp >= W || yp < 0 || yp >= H) continue;
+        const i = xp + yp * W;
+        if (vertex[2] >= zbuf[i]) {
+          zbuf[i] = vertex[2];
+          screen[i] = 64; // @
+        }
+      }
+    }
+
+    function frame(now: number) {
+      raf = requestAnimationFrame(frame);
+      if (now - last < FRAME_MS) return;
+      last = now;
+
+      screen.fill(SPACE);
+      zbuf.fill(0);
+      const cA = Math.cos(A),
+        sA = Math.sin(A),
+        cB = Math.cos(B),
+        sB = Math.sin(B);
+
+      if (shape.kind === "surface") renderSurface(shape, cA, sA, cB, sB);
+      else renderTesseract(cA, sA, cB, sB);
 
       // assemble the frame string (rows joined by newlines)
       let out = "";
