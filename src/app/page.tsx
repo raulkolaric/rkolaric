@@ -54,7 +54,7 @@ export default function Home() {
         onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
         aria-label="Toggle color theme"
       >
-        {theme === "light" ? "☾" : "☀"}
+        {theme === "light" ? "☾" : "☀︎"}
       </button>
 
       {/* ─── ASCII animation (ported from shapes.c) ──────────────── */}
