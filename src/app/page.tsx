@@ -10,7 +10,8 @@ const links = [
   { label: "LinkedIn", href: "https://www.linkedin.com/in/raulkolaric/" },
   { label: "Email", href: "mailto:rlkolaric+website@gmail.com" },
   { label: "Backup Teams", href: "https://github.com/raulkolaric/backup-teams" },
-  { label: "ICS Parse", href: "https://github.com/raulkolaric/ics-parse" }
+  { label: "ICS Parse", href: "https://github.com/raulkolaric/ics-parse" },
+  { label: "Mapari", href: "https://mapari.app/" }
 ];
 
 export default function Home() {
