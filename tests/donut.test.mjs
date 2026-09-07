@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import { donut } from '../public/prototypes/donut.mjs';
+const first = donut(0);
+assert.equal(first.length, 256);
+assert(first.some(value => value > 0));
+assert(first.every(value => value === -1 || (value >= 0.15 && value <= 1)));
+assert.notDeepEqual(first, donut(Math.PI / 2));
+assert.deepEqual(first.map(v => v.toFixed(6)), donut(Math.PI * 2).map(v => v.toFixed(6)));
+assert.equal(first[8 * 16 + 8], -1, 'The initial silhouette must have a visible hole');
+console.log('Donut geometry, shading, motion, and loop checks passed.');

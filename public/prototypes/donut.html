@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Donut favicon · Raul Kolarić</title>
+<link id="favicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='none' stroke='%23aaa' stroke-width='3'/%3E%3C/svg%3E">
+<style>
+  :root { color-scheme: dark; font: 15px/1.6 ui-monospace, monospace; background: #090909; color: #eee; }
+  body { max-width: 1000px; margin: 0 auto; padding: 56px 24px; }
+  h1 { font-size: clamp(24px, 5vw, 40px); font-weight: 500; letter-spacing: -.05em; margin-bottom: 8px; }
+  p { color: #aaa; max-width: 720px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap: 16px; margin: 32px 0; }
+  article { border: 1px solid #333; padding: 24px; border-radius: 12px; }
+  article:has(input:checked) { border-color: #ddd; }
+  .large { width: 160px; height: 160px; image-rendering: pixelated; display: block; margin: 28px auto; }
+  .tabs { display: flex; gap: 20px; align-items: center; padding: 12px; background: #252525; border-radius: 8px; }
+  .tabs.light { background: #eee; color: #222; margin-top: 8px; }
+  .tiny { width: 16px; height: 16px; }
+  label, button { cursor: pointer; }
+  button { font: inherit; padding: 8px 16px; border: 1px solid #666; border-radius: 6px; background: #222; color: #fff; }
+  small { color: #aaa; }
+</style>
+<h1>A little spin in the tab.</h1>
+<p>Three donut.c-inspired favicons. Choose one to try in this browser tab. Below: enlarged pixels and actual 16×16 previews on dark and light tabs.</p>
+<div class="grid" id="previews"></div>
+<button id="pause" type="button">Pause</button>
+<p><small>8 fps · 8-second loop · pauses in background tabs · reduced motion uses a still frame</small></p>
+<noscript><p>Enable JavaScript to compare the animated previews.</p></noscript>
+<script type="module">
+import { donut } from './donut.mjs';
+const names = ['Pixels', 'Dots', 'ASCII'];
+const descriptions = ['The clearest silhouette. Recommended.', 'A softer, stippled terminal texture.', 'Literal glyphs; intentionally testing the size limit.'];
+const frames = names.map(() => []);
+const canvas = document.createElement('canvas');
+canvas.width = canvas.height = 64;
+const ctx = canvas.getContext('2d');
+for (let frame = 0; frame < 64; frame++) {
+  const samples = donut(frame * Math.PI * 2 / 64);
+  names.forEach((name, variant) => {
+    ctx.clearRect(0, 0, 64, 64);
+    samples.forEach((value, i) => {
+      if (value < 0) return;
+      const x = i % 16 * 4, y = Math.floor(i / 16) * 4;
+      const shade = Math.round(70 + value * 185);
+      ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
+      if (variant === 0) ctx.fillRect(x, y, 4, 4);
+      else if (variant === 1) {
+        ctx.beginPath(); ctx.arc(x + 2, y + 2, 1.7, 0, 2 * Math.PI); ctx.fill();
+      } else {
+        ctx.font = '5px monospace'; ctx.textBaseline = 'top';
+        ctx.fillText('.,-~:;=!*#$@'[Math.floor(value * 11)], x, y);
+      }
+    });
+    frames[variant].push(canvas.toDataURL('image/png'));
+  });
+}
+const previews = document.querySelector('#previews');
+names.forEach((name, i) => {
+  const article = document.createElement('article');
+  article.innerHTML = `<label><input type="radio" name="variant" value="${i}" ${i === 0 ? 'checked' : ''}> ${name}</label><p><small>${descriptions[i]}</small></p><img class="large" alt="${name} donut enlarged"><div class="tabs"><img class="tiny" alt="">Raul Kolarić</div><div class="tabs light"><img class="tiny" alt="">Raul Kolarić</div>`;
+  previews.append(article);
+});
+const icons = [...previews.querySelectorAll('article')].map(article => [...article.querySelectorAll('img')]);
+const favicon = document.querySelector('#favicon');
+const pause = document.querySelector('#pause');
+const motion = matchMedia('(prefers-reduced-motion: reduce)');
+let selected = 0, frame = 0, timer, paused = false;
+function draw() {
+  icons.forEach((images, i) => images.forEach(img => { img.src = frames[i][frame]; }));
+  favicon.href = frames[selected][frame];
+}
+function sync() {
+  clearInterval(timer);
+  if (motion.matches || document.hidden) frame = 0;
+  draw();
+  pause.disabled = motion.matches;
+  pause.textContent = motion.matches ? 'Reduced motion enabled' : paused ? 'Play' : 'Pause';
+  if (!paused && !document.hidden && !motion.matches) timer = setInterval(() => { frame = (frame + 1) % 64; draw(); }, 125);
+}
+previews.addEventListener('change', event => { selected = Number(event.target.value); draw(); });
+pause.addEventListener('click', () => { paused = !paused; sync(); });
+motion.addEventListener('change', sync);
+document.addEventListener('visibilitychange', sync);
+sync();
+</script>
+</html>
