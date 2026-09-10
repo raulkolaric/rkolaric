@@ -1,0 +1,48 @@
+[
+  {
+    "title": "A quiet morning between the mountains, before the rest of the world woke up",
+    "date": "2026-08-23",
+    "photos": [
+      {
+        "src": "/misc/mountains.jpg",
+        "description": "A little distance from everything. Mountains, still water, and room to breathe.",
+        "alt": "Mountains surrounding a calm lake",
+        "photographer": "Mattia Poli",
+        "source": "https://unsplash.com/photos/XPVVtqCQWzY"
+      },
+      {
+        "src": "/misc/valley.jpg",
+        "description": "A wider view of the mountains, with a lake in the distance and a green hillside in the foreground.",
+        "alt": "Grassy hillside above a lake and distant mountain ranges",
+        "photographer": "Francesco Ungaro",
+        "source": "https://unsplash.com/photos/mH_H4Ty_YCs"
+      }
+    ]
+  },
+  {
+    "title": "Along the coast",
+    "date": "2026-08-16",
+    "photos": [
+      {
+        "src": "/misc/coast.jpg",
+        "description": "Following the edge of the coast, with nothing much planned beyond the next view.",
+        "alt": "Waves meeting the coastline",
+        "photographer": "Ian Schneider",
+        "source": "https://unsplash.com/photos/WymR2nYtj5M"
+      }
+    ]
+  },
+  {
+    "title": "An afternoon in the forest",
+    "date": "2026-08-09",
+    "photos": [
+      {
+        "src": "/misc/forest.jpg",
+        "description": "The kind of place that makes you slow down. A quiet moment under the trees.",
+        "alt": "Tall forest trees disappearing into the fog",
+        "photographer": "Vlad Patana",
+        "source": "https://unsplash.com/photos/Cdk2kB7oo0Q"
+      }
+    ]
+  }
+]

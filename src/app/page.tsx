@@ -11,7 +11,8 @@ const links = [
   { label: "LinkedIn", href: "https://www.linkedin.com/in/raulkolaric/" },
   { label: "Backup Teams", href: "https://github.com/raulkolaric/backup-teams" },
   { label: "ICS Parse", href: "https://github.com/raulkolaric/ics-parse" },
-  { label: "Mapari", href: "https://mapari.app/" }
+  { label: "Mapari", href: "https://mapari.app/" },
+  { label: "Misc", href: "/misc" }
 ];
 
 export default function Home() {
