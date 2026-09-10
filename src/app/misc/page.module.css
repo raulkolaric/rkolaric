@@ -32,7 +32,7 @@
   padding: 2.5rem 0;
 }
 
-.overviewHint {
+.overviewCount {
   margin-bottom: 1.5rem;
   color: var(--muted);
   font-size: 0.8125rem;
@@ -50,6 +50,25 @@
   border: 0;
   background: var(--bg);
   cursor: zoom-in;
+  transition: filter 160ms ease, transform 160ms ease;
+}
+
+.gridPhoto:hover,
+.gridPhoto:focus-visible {
+  filter: brightness(1.15);
+  transform: translateY(-2px);
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gridPhoto {
+    transition: none;
+  }
+
+  .gridPhoto:hover,
+  .gridPhoto:focus-visible {
+    transform: none;
+  }
 }
 
 .gridPhoto img {
@@ -91,10 +110,10 @@
 
 .eventHeading {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.5rem 1.5rem;
-  margin-bottom: 2rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1.75rem;
 }
 
 .eventHeading time {
@@ -139,14 +158,15 @@
 
 .caption {
   min-width: 0;
-  padding-top: 1rem;
   overflow-wrap: anywhere;
 }
 
-.index {
-  color: var(--accent);
+.photoCount {
+  color: var(--muted);
   font-size: 0.8125rem;
-  margin-bottom: 2rem;
+  margin-top: 0.75rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .caption h2 {
@@ -159,14 +179,17 @@
 
 .description {
   color: var(--muted);
-  margin-top: 1.5rem;
   max-width: 28ch;
   line-height: 1.8;
 }
 
+.photoFrame {
+  min-width: 0;
+  margin-left: clamp(0.5rem, 1vw, 1rem);
+}
+
 .photo {
   position: relative;
-  margin-left: clamp(0.5rem, 1vw, 1rem);
   height: clamp(280px, 52vh, 600px);
   background: color-mix(in srgb, var(--fg) 4%, var(--bg));
 }
@@ -261,25 +284,16 @@
     gap: 2rem;
   }
 
-  .caption {
-    padding: 0;
-  }
-
-  .index {
-    margin-bottom: 1rem;
-  }
-
   .caption h2,
   .description {
     max-width: none;
   }
 
-  .description {
-    margin-top: 0.75rem;
+  .photoFrame {
+    margin-left: 0;
   }
 
   .photo {
-    margin-left: 0;
     height: clamp(220px, 40svh, 360px);
   }
 

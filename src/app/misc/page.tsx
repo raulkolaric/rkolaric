@@ -36,34 +36,38 @@ function CollectionGallery({ collection, index, selected, onSelect }: {
 
   return (
     <section className={styles.event} aria-label={collection.title} data-event={index} tabIndex={-1}>
-      <header className={styles.eventHeading}>
-        <time dateTime={collection.date}>{collection.date}</time>
-      </header>
-
       <div className={styles.gallery}>
-        <div className={styles.caption} aria-live="polite" aria-atomic="true">
-          <p className={styles.index}>
-            {String(selected + 1).padStart(2, "0")} / {String(photos.length).padStart(2, "0")}
-          </p>
-          <h2>{collection.title}</h2>
-          <p className={styles.description}>{photo.description}</p>
-          {photo.photographer && (
-            <p className={styles.credit}>
-              Photo by {photo.source ? <a href={photo.source}>{photo.photographer}</a> : photo.photographer}
-            </p>
-          )}
+        <div className={styles.caption}>
+          <header className={styles.eventHeading}>
+            <h2>{collection.title}</h2>
+            <time dateTime={collection.date}>{collection.date}</time>
+          </header>
+          <div aria-live="polite" aria-atomic="true">
+            <p className={styles.description}>{photo.description}</p>
+            {photo.photographer && (
+              <p className={styles.credit}>
+                Photo by {photo.source ? <a href={photo.source}>{photo.photographer}</a> : photo.photographer}
+              </p>
+            )}
+          </div>
         </div>
 
-        <div className={styles.photo} data-photo={`${index}:${selected}`}>
-          <Image
-            src={photo.src}
-            alt={photo.alt}
-            fill
-            priority={index === 0}
-            sizes="(max-width: 760px) 100vw, 55vw"
-            style={{ viewTransitionName: photoName(index, selected) }}
-          />
-        </div>
+        <figure className={styles.photoFrame}>
+          <div className={styles.photo} data-photo={`${index}:${selected}`}>
+            <Image
+              src={photo.src}
+              alt={photo.alt}
+              fill
+              priority={index === 0}
+              sizes="(max-width: 760px) 100vw, 55vw"
+              style={{ viewTransitionName: photoName(index, selected) }}
+            />
+          </div>
+          <figcaption className={styles.photoCount} aria-live="polite" aria-atomic="true"
+            aria-label={`Photo ${selected + 1} of ${photos.length}`}>
+            {String(selected + 1).padStart(2, "0")} / {String(photos.length).padStart(2, "0")}
+          </figcaption>
+        </figure>
 
         <div className={styles.previews} role="group" aria-label="Choose a photo">
           {photos.map((item, photoIndex) => (
@@ -184,8 +188,8 @@ export default function Misc() {
 
       {overview ? (
         <section className={styles.overview} aria-label="All photos">
-          <p className={styles.overviewHint}>
-            {collections.reduce((total, collection) => total + collection.photos.length, 0)} photos · Click a photo or pinch open to return
+          <p className={styles.overviewCount}>
+            {collections.reduce((total, collection) => total + collection.photos.length, 0)} photos
           </p>
           <div className={styles.photoGrid}>
             {collections.flatMap((collection, collectionIndex) => collection.photos.map((photo, photoIndex) => (
@@ -215,7 +219,6 @@ export default function Misc() {
 
       <footer className={styles.footer}>
         <Link href="/">← Back home</Link>
-        <span>Layout sketch · sample events &amp; photographs</span>
       </footer>
     </main>
   );
