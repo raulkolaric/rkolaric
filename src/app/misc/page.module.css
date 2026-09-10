@@ -1,7 +1,5 @@
 .page {
   min-height: 100svh;
-  max-width: 1440px;
-  margin: 0 auto;
   padding: 2.5rem;
   display: flex;
   flex-direction: column;
@@ -11,6 +9,61 @@
   display: flex;
   align-items: baseline;
   gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.overviewToggle {
+  margin-left: auto;
+  padding: 0.5rem 0;
+  border: 0;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.overviewToggle:hover {
+  color: var(--accent);
+}
+
+.overview {
+  flex: 1;
+  padding: 2.5rem 0;
+}
+
+.overviewHint {
+  margin-bottom: 1.5rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.photoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 4px;
+}
+
+.gridPhoto {
+  position: relative;
+  aspect-ratio: 1;
+  border: 0;
+  background: var(--bg);
+  cursor: zoom-in;
+}
+
+.gridPhoto img {
+  object-fit: cover;
+}
+
+:global(html):has(.page)::view-transition-group(*) {
+  animation-duration: 650ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:global(html):has(.page)::view-transition-old(root),
+:global(html):has(.page)::view-transition-new(root) {
+  animation-duration: 300ms;
 }
 
 .header a,
@@ -31,11 +84,9 @@
 }
 
 .event {
-  min-height: 90svh;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 3rem 0 5rem;
+  padding: 2.5rem 0;
 }
 
 .eventHeading {
@@ -205,10 +256,6 @@
 }
 
 @media (max-width: 760px) {
-  .page {
-    padding: 1.5rem;
-  }
-
   .gallery {
     grid-template-columns: minmax(0, 1fr);
     gap: 2rem;

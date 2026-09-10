@@ -25,4 +25,8 @@ The gallery at `/misc` reads `misc.json`. The current entries are sample events 
 
 Events fade and slide in and out with scrolling through native CSS view timelines. Browsers without view-timeline support and visitors who request reduced motion see the same feed without animation.
 
+Pinch inward on a Mac trackpad, or choose **All photos**, to see a compact grid of every photo. Pinch open over a tile or click it to return to that photo's event. **Back to events** restores your previous scroll position. Photo selections are preserved while switching views. The overview includes only the real entries in `misc.json`.
+
+The zoom morph uses native View Transitions, with a direct view switch for older browsers or reduced-motion preferences. Trackpad handling covers Chromium/Firefox Ctrl-wheel events and Safari gesture events; ordinary scrolling and keyboard browser zoom remain native. The gesture check uses simulated events; physical Mac trackpad testing is still needed to tune the feel. The animation recreates the Photos interaction with web-native timing; it has not been matched frame by frame against Apple Photos.
+
 For a small personal gallery, hosting the images with the site keeps this simple. If the archive grows large or browser uploads become necessary, move the images to object storage and add an editor then.

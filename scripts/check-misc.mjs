@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+import { listenForPinch } from "../src/app/misc/pinch.mjs";
 
 const root = new URL("../", import.meta.url);
 const collections = JSON.parse(readFileSync(new URL("src/content/misc.json", root), "utf8"));
@@ -19,4 +20,34 @@ for (const collection of collections) {
   }
 }
 
-console.log("Gallery content and image files checked.");
+const target = new EventTarget();
+const gestures = [];
+const stop = listenForPinch(target, (direction) => gestures.push(direction));
+const send = (type, fields = {}) => {
+  const event = Object.assign(new Event(type, { cancelable: true }), fields);
+  target.dispatchEvent(event);
+  return event.defaultPrevented;
+};
+
+assert.equal(send("wheel", { deltaY: 200 }), false, "Normal scrolling stays native");
+send("wheel", { ctrlKey: true, deltaY: 5 });
+assert.deepEqual(gestures, [], "Small trackpad movements do not switch views");
+assert.equal(send("wheel", { ctrlKey: true, deltaY: 50 }), true);
+send("wheel", { ctrlKey: true, deltaY: 100 });
+assert.deepEqual(gestures, ["out"], "One transition per pinch, even with momentum");
+send("gesturestart");
+send("wheel", { ctrlKey: true, deltaY: -100 });
+assert.deepEqual(gestures, ["out"], "Safari gesture events take precedence over duplicate wheel events");
+send("gesturechange", { scale: 1.3 });
+send("gesturechange", { scale: 1.5 });
+send("gestureend");
+send("gesturestart");
+send("gesturechange", { scale: Number.NaN });
+send("gesturechange", { scale: 0.75 });
+send("gestureend");
+send("wheel", { ctrlKey: true, deltaY: -50 });
+assert.deepEqual(gestures, ["out", "in", "out", "in"], "Both browsers support both pinch directions");
+stop();
+assert.equal(send("wheel", { ctrlKey: true, deltaY: 100 }), false, "Listeners are removed on cleanup");
+
+console.log("Gallery content, image files, and pinch gestures checked.");
