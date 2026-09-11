@@ -80,9 +80,35 @@
   animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+:global(html):has(.page)::view-transition-old(*),
+:global(html):has(.page)::view-transition-new(*) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+:global(html):has(.page)::view-transition-old(*) {
+  z-index: 1;
+}
+
+@keyframes pageFadeOut {
+  to { opacity: 0; }
+}
+
+@keyframes pageFadeIn {
+  from { opacity: 0; }
+}
+
 :global(html):has(.page)::view-transition-old(root),
 :global(html):has(.page)::view-transition-new(root) {
-  animation-duration: 300ms;
+  animation: 300ms ease both;
+}
+
+:global(html):has(.page)::view-transition-old(root) {
+  animation-name: pageFadeOut;
+}
+
+:global(html):has(.page)::view-transition-new(root) {
+  animation-name: pageFadeIn;
 }
 
 .header a,
