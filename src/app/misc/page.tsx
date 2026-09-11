@@ -72,7 +72,7 @@ function CollectionGallery({ collection, index, selected, onSelect }: {
         <div className={styles.previews} role="group" aria-label="Choose a photo">
           {photos.map((item, photoIndex) => (
             <button
-              key={item.src}
+              key={`${item.src}-${photoIndex}`}
               type="button"
               onClick={() => onSelect(photoIndex)}
               data-photo={`${index}:${photoIndex}`}
