@@ -101,7 +101,7 @@ export default function Misc() {
   const lastPhoto = useRef<PhotoPosition>({ collection: 0, photo: 0 });
 
   const changeView = useCallback((next: boolean, target?: PhotoPosition) => {
-    if (busy.current || next === mode.current) return;
+    if (busy.current || next === mode.current) return false;
     if (next) {
       scrollPosition.current = window.scrollY;
       if (target) lastPhoto.current = target;
@@ -138,17 +138,18 @@ export default function Misc() {
     if (!document.startViewTransition || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       update();
       finish();
-      return;
+      return true;
     }
     const transition = document.startViewTransition(update);
     // A skipped animation must still leave the requested view usable.
     void transition.ready.catch(() => {});
     void transition.finished.then(finish, finish);
+    return true;
   }, []);
 
   useEffect(() => {
     if (!page.current) return;
-    return listenForPinch(document, (direction, x, y) => {
+    return listenForPinch(window, (direction, x, y) => {
       const hit = Number.isFinite(x) && Number.isFinite(y)
         ? document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-photo]")
         : null;
@@ -171,7 +172,7 @@ export default function Misc() {
           target = { collection, photo };
         }
       }
-      changeView(direction === "out", target);
+      return changeView(direction === "out", target);
     });
   }, [changeView]);
 

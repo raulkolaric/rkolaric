@@ -22,7 +22,11 @@ for (const collection of collections) {
 
 const target = new EventTarget();
 const gestures = [];
-const stop = listenForPinch(target, (direction) => gestures.push(direction));
+let busy = false;
+const stop = listenForPinch(target, (direction) => {
+  if (busy) return false;
+  gestures.push(direction);
+});
 const send = (type, fields = {}) => {
   const event = Object.assign(new Event(type, { cancelable: true }), fields);
   target.dispatchEvent(event);
@@ -35,10 +39,14 @@ assert.deepEqual(gestures, [], "Small trackpad movements do not switch views");
 assert.equal(send("wheel", { ctrlKey: true, deltaY: 50 }), true);
 send("wheel", { ctrlKey: true, deltaY: 100 });
 assert.deepEqual(gestures, ["out"], "One transition per pinch, even with momentum");
+assert.equal(send("wheel", { ctrlKey: true, deltaY: -2 }), true, "Even sub-threshold pinches suppress browser zoom");
+send("wheel", { ctrlKey: true, deltaY: -11 });
+assert.deepEqual(gestures, ["out", "in"], "A light reverse pinch returns without waiting for an idle timeout");
 send("gesturestart");
 send("wheel", { ctrlKey: true, deltaY: -100 });
-assert.deepEqual(gestures, ["out"], "Safari gesture events take precedence over duplicate wheel events");
-send("gesturechange", { scale: 1.3 });
+assert.deepEqual(gestures, ["out", "in"], "Safari gesture events take precedence over duplicate wheel events");
+assert.equal(send("gesturechange", { scale: 1.07 }), true);
+assert.deepEqual(gestures, ["out", "in", "in"], "A light Safari pinch returns to the event");
 send("gesturechange", { scale: 1.5 });
 send("gestureend");
 send("gesturestart");
@@ -46,7 +54,14 @@ send("gesturechange", { scale: Number.NaN });
 send("gesturechange", { scale: 0.75 });
 send("gestureend");
 send("wheel", { ctrlKey: true, deltaY: -50 });
-assert.deepEqual(gestures, ["out", "in", "out", "in"], "Both browsers support both pinch directions");
+assert.deepEqual(gestures, ["out", "in", "in", "out", "in"], "Both browsers support both pinch directions");
+send("gesturestart");
+busy = true;
+send("gesturechange", { scale: 1.07 });
+busy = false;
+send("gesturechange", { scale: 1.08 });
+assert.deepEqual(gestures, ["out", "in", "in", "out", "in", "in"], "An animating view does not consume the next pinch");
+send("gestureend");
 stop();
 assert.equal(send("wheel", { ctrlKey: true, deltaY: 100 }), false, "Listeners are removed on cleanup");
 
