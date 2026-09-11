@@ -82,12 +82,23 @@
 
 :global(html):has(.page)::view-transition-old(*),
 :global(html):has(.page)::view-transition-new(*) {
-  animation: none;
   mix-blend-mode: normal;
 }
 
 :global(html):has(.page)::view-transition-old(*) {
-  z-index: 1;
+  animation: photoFadeOut 180ms ease both;
+}
+
+:global(html):has(.page)::view-transition-new(*) {
+  animation: photoFadeIn 180ms ease both;
+}
+
+@keyframes photoFadeOut {
+  to { opacity: 0; }
+}
+
+@keyframes photoFadeIn {
+  from { opacity: 0; }
 }
 
 @keyframes pageFadeOut {
