@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import AsciiBackground from "@/components/AsciiBackground";
 // import BrasiliaClock from "@/components/BrasiliaClock";
 
@@ -26,11 +27,12 @@ export default function Home() {
     }
   }, []);
 
-  // Reflect theme on <html> so CSS variables switch.
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem("theme", theme);
-  }, [theme]);
+  const toggleTheme = () => {
+    const nextTheme = theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = nextTheme;
+    localStorage.setItem("theme", nextTheme);
+    setTheme(nextTheme);
+  };
 
   return (
     <main className="page">
@@ -39,22 +41,23 @@ export default function Home() {
         <p className="tagline">Automation, Cloud, Open Source · CS @ PUC-SP</p>
 
         <nav className="links">
-          {links.map((link) => (
-            <a
+          {links.map((link) => {
+            const Component = link.href.startsWith("/") ? Link : "a";
+            return <Component
               key={link.label}
               href={link.href}
               target={link.href.startsWith("http") ? "_blank" : undefined}
               rel={link.href.startsWith("http") ? "noopener noreferrer" : undefined}
             >
               {link.label}
-            </a>
-          ))}
+            </Component>;
+          })}
         </nav>
       </header>
 
       <button
         className="theme-toggle"
-        onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+        onClick={toggleTheme}
         aria-label="Toggle color theme"
       >
         {theme === "light" ? "☾" : "☀︎"}
