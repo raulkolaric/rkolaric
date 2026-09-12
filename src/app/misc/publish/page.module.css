@@ -1,0 +1,175 @@
+.page {
+  width: min(900px, 100%);
+  min-height: 100svh;
+  margin: 0 auto;
+  padding: 2.5rem;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+
+.header a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.header h1 {
+  margin-top: 0.6rem;
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  font-weight: 400;
+  letter-spacing: -0.05em;
+}
+
+.page button,
+.filePicker {
+  border: 1px solid var(--muted);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.page button {
+  padding: 0.7rem 1rem;
+}
+
+.page button:hover:not(:disabled),
+.filePicker:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.page button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.login,
+.form {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.login {
+  width: min(420px, 100%);
+}
+
+.login label,
+.form label {
+  display: grid;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.page input,
+.page textarea {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--muted) 65%, transparent);
+  border-radius: 0;
+  outline: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.page input {
+  min-height: 2.8rem;
+  padding: 0.65rem 0.75rem;
+}
+
+.page textarea {
+  padding: 0.75rem;
+  resize: vertical;
+}
+
+.page input:focus,
+.page textarea:focus {
+  border-color: var(--accent);
+}
+
+.eventFields {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
+  gap: 1rem;
+}
+
+.path {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.filePicker {
+  display: inline-block !important;
+  justify-self: start;
+  padding: 0.7rem 1rem;
+}
+
+.filePicker input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.photos {
+  display: grid;
+  gap: 1rem;
+}
+
+.photo {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--muted) 45%, transparent);
+}
+
+.photo legend {
+  max-width: 100%;
+  padding: 0 0.5rem;
+  overflow-wrap: anywhere;
+  color: var(--fg);
+}
+
+.remove {
+  justify-self: start;
+}
+
+.publish {
+  justify-self: start;
+}
+
+.message,
+.success {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  overflow-wrap: anywhere;
+  border: 1px solid currentColor;
+  color: #ef4444;
+  font-size: 0.8125rem;
+}
+
+.success {
+  color: var(--accent);
+}
+
+@media (max-width: 600px) {
+  .page {
+    padding: 1.5rem;
+  }
+
+  .eventFields {
+    grid-template-columns: 1fr;
+  }
+}

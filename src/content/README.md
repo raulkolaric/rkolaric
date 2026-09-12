@@ -1,6 +1,6 @@
 # Gallery storage and publishing
 
-The `/misc` gallery keeps public text in `misc.json` and published image copies in Cloudflare R2. Original photos stay in Photos, iCloud, or another private backup and never enter this repository.
+The `/misc` gallery keeps production metadata in `misc/index.json` and published image copies in Cloudflare R2. The bundled `misc.json` is the fallback when R2 metadata is unavailable. Original photos stay in Photos, iCloud, or another private backup and never enter this repository.
 
 The production image address is:
 
@@ -53,9 +53,9 @@ Only resized, publishable copies belong in this bucket. Do not upload camera ori
 
 Test the domain after uploading the first image by opening its full URL in a private browser window.
 
-### 4. Create credentials for the future upload command
+### 4. Create publishing credentials
 
-Manual dashboard uploads do not need credentials, but create a restricted token now so uploads can be automated later.
+The private `/misc/publish` page needs restricted R2 credentials.
 
 1. Return to **R2 → Overview**.
 2. Under **Account Details**, choose **Manage** next to **API Tokens**.
@@ -64,7 +64,7 @@ Manual dashboard uploads do not need credentials, but create a restricted token 
 5. Apply it only to the `rkolaric-photos` bucket.
 6. Copy the **Access Key ID**, **Secret Access Key**, account ID, and S3 endpoint immediately. Cloudflare shows the secret only once.
 
-Store them locally in `.env.local` at the repository root:
+Store them locally in `.env.local` at the repository root and add the same values to the Vercel project:
 
 ```dotenv
 R2_ACCOUNT_ID=replace-me
@@ -73,24 +73,33 @@ R2_SECRET_ACCESS_KEY=replace-me
 R2_BUCKET=rkolaric-photos
 R2_ENDPOINT=https://replace-me.r2.cloudflarestorage.com
 R2_PUBLIC_URL=https://photos.rkolaric.com
+PUBLISH_PASSWORD=replace-with-a-random-password-of-at-least-16-characters
+SESSION_SECRET=replace-with-at-least-32-random-characters
 ```
 
-`.env.local` is ignored by Git. These credentials are only for uploading from the Mac; the deployed site reads public image URLs and does not need them in Vercel.
+`.env.local` is ignored by Git. None of these names may use the `NEXT_PUBLIC_` prefix.
 
 Never paste real credentials into `misc.json`, source code, a commit, an issue, or a chat message.
+
+### 5. Allow browser uploads
+
+Add this CORS policy to the R2 bucket, replacing or extending the origins when the site uses another hostname:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://rkolaric.com", "http://localhost:3000"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["Content-Type"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
 
 ## Publish the first event
 
 ### 1. Prepare public copies
-
-Create an event folder outside the repository. Use a sortable date and short lowercase slug:
-
-```text
-2026-09-07-dolomites/
-  01-lake.jpg
-  02-trail.jpg
-  03-summit.jpg
-```
 
 For each public copy:
 
@@ -98,77 +107,35 @@ For each public copy:
 - Keep the long edge around 2400 pixels.
 - Export JPEG at roughly 80–85% quality, or WebP at similar visual quality.
 - Remove location and other EXIF metadata.
-- Use numbered lowercase filenames without spaces.
 - Inspect the exported copy before upload.
 
 Keep the originals in the photo library or backup. R2 is the delivery copy, not the master archive.
 
-### 2. Upload through the R2 dashboard
+### 2. Upload and publish
 
-1. Open the `rkolaric-photos` bucket.
-2. Create the path `misc/2026-09-07-dolomites/`.
-3. Upload the prepared files into that path.
-4. Open each expected public URL and confirm it loads:
-
-```text
-https://photos.rkolaric.com/misc/2026-09-07-dolomites/01-lake.jpg
-```
-
-Uploading first prevents a deployed gallery from pointing at missing images.
-
-### 3. Add the event text
-
-Add the newest event at the top of `misc.json`. One title belongs to the event; every photo has its own description and accessibility text.
-
-```json
-{
-  "title": "A full day in the Dolomites",
-  "date": "2026-09-07",
-  "photos": [
-    {
-      "src": "https://photos.rkolaric.com/misc/2026-09-07-dolomites/01-lake.jpg",
-      "description": "The first stop after leaving the road behind.",
-      "alt": "Still blue lake surrounded by steep mountains"
-    },
-    {
-      "src": "https://photos.rkolaric.com/misc/2026-09-07-dolomites/02-trail.jpg",
-      "description": "The trail climbing above the tree line.",
-      "alt": "Rocky mountain trail above a pine forest"
-    }
-  ]
-}
-```
-
-`photographer` and `source` are optional. Use them when a photo needs attribution.
-
-### 4. Validate and publish
-
-Run:
-
-```sh
-node scripts/check-misc.mjs
-npm run dev
-```
-
-Open `http://localhost:3000/misc` and check:
+1. Open `/misc/publish` and enter the publishing password.
+2. Enter the event title and date.
+3. Choose up to 50 prepared JPEG, WebP, or PNG images, each no larger than 15 MB.
+4. Add a description and alt text for every image.
+5. Review the generated immutable event path.
+6. Choose **Upload and publish**.
+7. Open `/misc` and check:
 
 - Event order, title, and date.
 - Every main photo and thumbnail.
 - Portrait and landscape framing.
-- Every description and credit.
+- Every description.
 - The compact grid and both pinch directions.
 
-Commit `src/content/misc.json` after the preview is correct. The normal Vercel deployment publishes the update. Image files remain in R2 and do not enter Git history.
+The first successful publish creates `misc/index.json` from the bundled fallback and prepends the new event. If metadata publishing fails after upload, the page reports the possibly orphaned R2 object keys; do not publish the same path again until those objects are removed or the title is changed.
 
 ## Rules that prevent future problems
 
 - Treat every R2 custom-domain URL as public.
 - Keep originals and private metadata outside both Git and the public bucket.
-- Never overwrite a published file. Upload a new filename such as `03-summit-v2.jpg`, update `misc.json`, then remove the old object later. This avoids stale CDN and browser caches.
-- Upload objects before deploying their JSON references.
-- Remove JSON references before deleting objects.
+- Never overwrite a published file. The publisher rejects existing event paths and object keys.
 - Keep event paths immutable after publication.
-- Keep a separate backup of originals; Git protects the captions, not the photographs.
+- Keep a separate backup of originals and periodically copy `misc/index.json`; R2 is the live source of both captions and photographs.
 
 ## Troubleshooting
 
@@ -180,11 +147,13 @@ Commit `src/content/misc.json` after the preview is correct. The normal Vercel d
 
 **The gallery check rejects a URL:** use either a local `/misc/...` sample path or the exact `https://photos.rkolaric.com/misc/...` production prefix.
 
-**An updated photo still looks old:** publish it under a new filename and update the JSON rather than overwriting a cached object.
+**Publishing reports orphaned keys:** inspect those exact keys in R2. Remove them before retrying the same event path, or change the event title to generate a new path.
+
+**Direct upload fails in the browser:** confirm the bucket CORS policy includes the exact site origin and permits `PUT` with the `Content-Type` header.
 
 ## Existing gallery behavior
 
-Collections appear in the order written in `misc.json`, so keep the newest event first. Each event has one title and any number of photos with individual descriptions. Portrait, landscape, and square images are supported.
+Collections appear in the order written in R2 metadata, with the newest published event first. Each event has one title and any number of photos with individual descriptions. Portrait, landscape, and square images are supported.
 
 Days remain in a continuous scroll. Pinching inward on a Mac trackpad or choosing **All photos** opens the compact grid; pinching open over a tile or clicking it returns to that photo's event.
 
@@ -192,5 +161,7 @@ Days remain in a continuous scroll. Pinching inward on a Mac trackpad or choosin
 
 - [Cloudflare R2 public buckets and custom domains](https://developers.cloudflare.com/r2/buckets/public-buckets/)
 - [Cloudflare R2 S3 credentials](https://developers.cloudflare.com/r2/get-started/s3/)
+- [Cloudflare R2 presigned URLs](https://developers.cloudflare.com/r2/api/s3/presigned-urls/)
+- [Cloudflare R2 CORS](https://developers.cloudflare.com/r2/buckets/cors/)
 - [Cloudflare R2 pricing](https://developers.cloudflare.com/r2/pricing/)
 - [Next.js remote image configuration](https://nextjs.org/docs/app/api-reference/components/image#remotepatterns)
