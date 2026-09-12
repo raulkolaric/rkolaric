@@ -120,8 +120,10 @@ export default function Misc() {
         }
       });
       if (!next && target) {
-        page.current?.querySelector(`[data-event="${target.collection}"]`)
-          ?.scrollIntoView({ behavior: "instant", block: "center" });
+        const event = page.current?.querySelector(`[data-event="${target.collection}"]`);
+        event?.scrollIntoView({ behavior: "instant", block: "center" });
+        event?.querySelector('[aria-pressed="true"]')
+          ?.scrollIntoView({ behavior: "instant", block: "nearest", inline: "nearest" });
       } else {
         window.scrollTo({ top: next ? 0 : scrollPosition.current, behavior: "instant" });
       }
