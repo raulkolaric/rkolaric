@@ -9,11 +9,16 @@ const remotePrefix = "https://photos.rkolaric.com/misc/";
 for (const collection of collections) {
   assert.ok(collection.title.trim(), "Each collection needs a title");
   assert.match(collection.date, /^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD dates");
+  if (collection.description !== undefined) {
+    assert.equal(typeof collection.description, "string", `${collection.title} has an invalid description`);
+    assert.ok(collection.description.length <= 1000, `${collection.title} description is too long`);
+  }
   assert.ok(collection.photos.length, `${collection.title} needs at least one photo`);
   for (const photo of collection.photos) {
     assert.ok(!("title" in photo), "Titles belong to collections, not individual photos");
-    for (const field of ["description", "alt"]) {
-      assert.ok(photo[field]?.trim(), `${photo.src} needs ${field}`);
+    if (photo.alt !== undefined) {
+      assert.equal(typeof photo.alt, "string", `${photo.src} has invalid alt text`);
+      assert.ok(photo.alt.length <= 500, `${photo.src} alt text is too long`);
     }
     const local = photo.src.startsWith("/misc/");
     assert.ok(local || photo.src.startsWith(remotePrefix), `Use /misc/ or ${remotePrefix} for gallery images`);

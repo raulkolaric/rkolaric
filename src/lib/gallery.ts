@@ -1,7 +1,6 @@
 export type Photo = {
   src: string;
-  description: string;
-  alt: string;
+  alt?: string;
   photographer?: string;
   source?: string;
 };
@@ -9,6 +8,7 @@ export type Photo = {
 export type Collection = {
   title: string;
   date: string;
+  description?: string;
   photos: Photo[];
 };
 
@@ -17,22 +17,20 @@ const record = (value: unknown): value is Record<string, unknown> =>
 
 export function isGallery(value: unknown, publicUrl = "https://photos.rkolaric.com"): value is Collection[] {
   const remotePrefix = `${publicUrl.replace(/\/$/, "")}/misc/`;
-  return Array.isArray(value) && value.length > 0 && value.every((collection) =>
+  return Array.isArray(value) && value.every((collection) =>
     record(collection)
     && typeof collection.title === "string"
     && Boolean(collection.title.trim())
     && typeof collection.date === "string"
     && /^\d{4}-\d{2}-\d{2}$/.test(collection.date)
+    && (collection.description === undefined || typeof collection.description === "string")
     && Array.isArray(collection.photos)
     && collection.photos.length > 0
     && collection.photos.every((photo) =>
       record(photo)
       && typeof photo.src === "string"
       && (photo.src.startsWith("/misc/") || photo.src.startsWith(remotePrefix))
-      && typeof photo.description === "string"
-      && Boolean(photo.description.trim())
-      && typeof photo.alt === "string"
-      && Boolean(photo.alt.trim())
+      && (photo.alt === undefined || typeof photo.alt === "string")
       && (photo.photographer === undefined || typeof photo.photographer === "string")
       && (photo.source === undefined || (typeof photo.source === "string" && photo.source.startsWith("https://")))
     ));

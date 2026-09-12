@@ -29,8 +29,8 @@ function CollectionGallery({ collection, index, selected, animate, onSelect }: {
             <h2>{collection.title}</h2>
             <time dateTime={collection.date}>{collection.date}</time>
           </header>
+          {collection.description && <p className={styles.description}>{collection.description}</p>}
           <div aria-live="polite" aria-atomic="true">
-            <p className={styles.description}>{photo.description}</p>
             {photo.photographer && (
               <p className={styles.credit}>
                 Photo by {photo.source ? <a href={photo.source}>{photo.photographer}</a> : photo.photographer}
@@ -44,7 +44,7 @@ function CollectionGallery({ collection, index, selected, animate, onSelect }: {
             style={{ viewTransitionName: animate ? photoName(index, selected) : "none" }}>
             <Image
               src={photo.src}
-              alt={photo.alt}
+              alt={photo.alt || ""}
               fill
               priority={index === 0}
               sizes="(max-width: 760px) 100vw, 55vw"
@@ -64,7 +64,7 @@ function CollectionGallery({ collection, index, selected, animate, onSelect }: {
               type="button"
               onClick={() => onSelect(photoIndex)}
               data-photo={`${index}:${photoIndex}`}
-              aria-label={`View photo ${photoIndex + 1}: ${item.alt}`}
+              aria-label={`View photo ${photoIndex + 1}${item.alt ? `: ${item.alt}` : ""}`}
               aria-pressed={selected === photoIndex}
               className={styles.preview}
               style={{ viewTransitionName: animate && selected !== photoIndex ? photoName(index, photoIndex) : "none" }}
@@ -192,7 +192,7 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
                 style={{ viewTransitionName: transitionCollection === null || transitionCollection === collectionIndex
                   ? photoName(collectionIndex, photoIndex)
                   : "none" }}
-                aria-label={`Open ${photo.alt} — ${collection.title}, ${collection.date}`}
+                aria-label={`Open ${photo.alt || `photo ${photoIndex + 1}`} — ${collection.title}, ${collection.date}`}
                 title={`${collection.date} · ${collection.title}`}
                 onClick={() => changeView(false, { collection: collectionIndex, photo: photoIndex })}>
                 <Image src={photo.src} alt="" fill sizes="88px" />

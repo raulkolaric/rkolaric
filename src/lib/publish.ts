@@ -131,6 +131,14 @@ const cleanTitle = (value: unknown) => {
   return value.trim();
 };
 
+const cleanOptional = (value: unknown, limit: number, label: string) => {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || value.trim().length > limit) {
+    throw new PublishError(400, `${label} must be ${limit.toLocaleString()} characters or fewer.`);
+  }
+  return value.trim() || undefined;
+};
+
 const pathFor = (date: unknown, title: unknown) => {
   if (!isDate(date)) throw new PublishError(400, "Use a valid date.");
   const path = eventPath(date, cleanTitle(title));
@@ -232,12 +240,13 @@ async function verifyImage(key: string) {
   }
 }
 
-type PendingPhoto = { key: string; description: string; alt: string };
+type PendingPhoto = { key: string; alt?: string };
 
 export async function publishEvent(value: unknown) {
   if (typeof value !== "object" || value === null) throw new PublishError(400, "Invalid event.");
   const body = value as Record<string, unknown>;
   const title = cleanTitle(body.title);
+  const description = cleanOptional(body.description, 1000, "Description");
   const path = pathFor(body.date, title);
   if (!Array.isArray(body.photos) || body.photos.length < 1 || body.photos.length > 50) {
     throw new PublishError(400, "Add between 1 and 50 photos.");
@@ -247,13 +256,8 @@ export async function publishEvent(value: unknown) {
     if (typeof photo !== "object" || photo === null) throw new PublishError(400, "Invalid photo metadata.");
     const item = photo as Record<string, unknown>;
     if (typeof item.key !== "string" || !keyPattern.test(item.key)) throw new PublishError(400, "Invalid photo path.");
-    if (typeof item.description !== "string" || !item.description.trim() || item.description.trim().length > 1000) {
-      throw new PublishError(400, "Each photo needs a description of 1,000 characters or fewer.");
-    }
-    if (typeof item.alt !== "string" || !item.alt.trim() || item.alt.trim().length > 500) {
-      throw new PublishError(400, "Each photo needs alt text of 500 characters or fewer.");
-    }
-    return { key: item.key, description: item.description.trim(), alt: item.alt.trim() };
+    const alt = cleanOptional(item.alt, 500, "Alt text");
+    return { key: item.key, ...(alt ? { alt } : {}) };
   });
   if (new Set(photos.map(({ key }) => key)).size !== photos.length) throw new PublishError(400, "Photo paths must be unique.");
   await Promise.all(photos.map(({ key }) => verifyImage(key)));
@@ -263,7 +267,8 @@ export async function publishEvent(value: unknown) {
   const collection: Collection = {
     title,
     date: body.date as string,
-    photos: photos.map(({ key, description, alt }) => ({ src: `${publicUrl()}/${key}`, description, alt })),
+    ...(description ? { description } : {}),
+    photos: photos.map(({ key, alt }) => ({ src: `${publicUrl()}/${key}`, ...(alt ? { alt } : {}) })),
   };
   try {
     await r2().send(new PutObjectCommand({

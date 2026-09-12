@@ -14,7 +14,7 @@ Example:
 https://photos.rkolaric.com/misc/2026-09-07-dolomites/01-lake.jpg
 ```
 
-Local `/misc/...` paths remain supported for the sample gallery. New real events should use the R2 address.
+The bundled fallback starts empty. Published events use the R2 address.
 
 ## One-time Cloudflare setup
 
@@ -115,16 +115,17 @@ Keep the originals in the photo library or backup. R2 is the delivery copy, not 
 
 1. Open `/misc/publish` and enter the publishing password.
 2. Enter the event title and date.
-3. Choose up to 50 prepared JPEG, WebP, or PNG images, each no larger than 15 MB.
-4. Add a description and alt text for every image.
-5. Review the generated immutable event path.
-6. Choose **Upload and publish**.
-7. Open `/misc` and check:
+3. Optionally add one description for the event.
+4. Choose up to 50 prepared JPEG, WebP, or PNG images, each no larger than 15 MB.
+5. Preview the selected images and optionally add alt text to each one.
+6. Review the generated immutable event path.
+7. Choose **Upload and publish**.
+8. Open `/misc` and check:
 
 - Event order, title, and date.
 - Every main photo and thumbnail.
 - Portrait and landscape framing.
-- Every description.
+- The event description and image alt text, when supplied.
 - The compact grid and both pinch directions.
 
 The first successful publish creates `misc/index.json` from the bundled fallback and prepends the new event. If metadata publishing fails after upload, the page reports the possibly orphaned R2 object keys; do not publish the same path again until those objects are removed or the title is changed.

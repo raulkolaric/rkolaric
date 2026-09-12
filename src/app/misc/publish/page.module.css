@@ -143,6 +143,17 @@
   color: var(--fg);
 }
 
+.preview {
+  position: relative;
+  width: min(360px, 100%);
+  aspect-ratio: 4 / 3;
+}
+
+.preview img {
+  object-fit: contain;
+  object-position: left center;
+}
+
 .remove {
   justify-self: start;
 }

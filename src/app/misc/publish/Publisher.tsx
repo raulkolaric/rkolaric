@@ -1,14 +1,14 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { eventPath } from "@/lib/gallery";
 import styles from "./page.module.css";
 
 type PhotoInput = {
   id: string;
   file: File;
-  description: string;
   alt: string;
 };
 
@@ -36,11 +36,18 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
   return data;
 }
 
+function Preview({ file, alt }: { file: File; alt: string }) {
+  const [src] = useState(() => URL.createObjectURL(file));
+  useEffect(() => () => URL.revokeObjectURL(src), [src]);
+  return <div className={styles.preview}><Image src={src} alt={alt} fill unoptimized sizes="360px" /></div>;
+}
+
 export default function Publisher({ initialAuthenticated }: { initialAuthenticated: boolean }) {
   const [authenticated, setAuthenticated] = useState(initialAuthenticated);
   const [password, setPassword] = useState("");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
+  const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState<PhotoInput[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -92,13 +99,12 @@ export default function Publisher({ initialAuthenticated }: { initialAuthenticat
     setPhotos((current) => [...current, ...next.map((file) => ({
       id: crypto.randomUUID(),
       file,
-      description: "",
       alt: "",
     }))]);
   };
 
-  const updatePhoto = (id: string, field: "description" | "alt", value: string) => {
-    setPhotos((current) => current.map((photo) => photo.id === id ? { ...photo, [field]: value } : photo));
+  const updateAlt = (id: string, alt: string) => {
+    setPhotos((current) => current.map((photo) => photo.id === id ? { ...photo, alt } : photo));
   };
 
   const publish = async (event: FormEvent) => {
@@ -128,9 +134,9 @@ export default function Publisher({ initialAuthenticated }: { initialAuthenticat
       await post("/api/publish/event", {
         title,
         date,
+        description,
         photos: photos.map((photo, index) => ({
           key: uploads[index].key,
-          description: photo.description,
           alt: photo.alt,
         })),
       });
@@ -138,6 +144,7 @@ export default function Publisher({ initialAuthenticated }: { initialAuthenticat
       setMessage(`Published ${prepared.path}`);
       setTitle("");
       setDate("");
+      setDescription("");
       setPhotos([]);
     } catch (error) {
       if (error instanceof RequestError && error.status === 401) setAuthenticated(false);
@@ -179,6 +186,12 @@ export default function Publisher({ initialAuthenticated }: { initialAuthenticat
             </label>
           </div>
 
+          <label>
+            Event description (optional)
+            <textarea maxLength={1000} rows={3} value={description}
+              onChange={(event) => setDescription(event.target.value)} />
+          </label>
+
           <p className={styles.path}>/{path || "misc/YYYY-MM-DD-event/"}</p>
 
           <label className={styles.filePicker}>
@@ -194,15 +207,11 @@ export default function Publisher({ initialAuthenticated }: { initialAuthenticat
             {photos.map((photo, index) => (
               <fieldset key={photo.id} className={styles.photo}>
                 <legend>{String(index + 1).padStart(2, "0")} · {photo.file.name}</legend>
+                <Preview file={photo.file} alt={photo.alt} />
                 <label>
-                  Description
-                  <textarea required maxLength={1000} rows={3} value={photo.description}
-                    onChange={(event) => updatePhoto(photo.id, "description", event.target.value)} />
-                </label>
-                <label>
-                  Alt text
-                  <textarea required maxLength={500} rows={2} value={photo.alt}
-                    onChange={(event) => updatePhoto(photo.id, "alt", event.target.value)} />
+                  Alt text (optional)
+                  <textarea maxLength={500} rows={2} value={photo.alt}
+                    onChange={(event) => updateAlt(photo.id, event.target.value)} />
                 </label>
                 <button type="button" className={styles.remove}
                   onClick={() => setPhotos((current) => current.filter(({ id }) => id !== photo.id))}>
