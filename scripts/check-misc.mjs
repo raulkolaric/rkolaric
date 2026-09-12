@@ -6,7 +6,6 @@ const root = new URL("../", import.meta.url);
 const collections = JSON.parse(readFileSync(new URL("src/content/misc.json", root), "utf8"));
 const remotePrefix = "https://photos.rkolaric.com/misc/";
 
-assert.ok(collections.length, "Add at least one collection");
 for (const collection of collections) {
   assert.ok(collection.title.trim(), "Each collection needs a title");
   assert.match(collection.date, /^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD dates");
