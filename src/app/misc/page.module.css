@@ -263,8 +263,7 @@
   border: 0;
   background: var(--bg);
   cursor: pointer;
-  filter: brightness(0.5);
-  transition: filter 150ms ease;
+  transition: transform 150ms ease;
 }
 
 .preview img {
@@ -284,11 +283,20 @@
 .preview[aria-pressed="true"] {
   outline: 1px solid var(--accent);
   outline-offset: 4px;
-  filter: brightness(1);
 }
 
 .preview:hover {
-  filter: brightness(1);
+  transform: translateX(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview {
+    transition: none;
+  }
+
+  .preview:hover {
+    transform: none;
+  }
 }
 
 .page a:hover {
