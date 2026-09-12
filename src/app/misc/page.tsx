@@ -25,10 +25,11 @@ const collections: Collection[] = collectionData;
 type PhotoPosition = { collection: number; photo: number };
 const photoName = (collection: number, photo: number) => `misc-photo-${collection}-${photo}`;
 
-function CollectionGallery({ collection, index, selected, onSelect }: {
+function CollectionGallery({ collection, index, selected, animate, onSelect }: {
   collection: Collection;
   index: number;
   selected: number;
+  animate: boolean;
   onSelect: (photo: number) => void;
 }) {
   const { photos } = collection;
@@ -54,7 +55,7 @@ function CollectionGallery({ collection, index, selected, onSelect }: {
 
         <figure className={styles.photoFrame}>
           <div className={styles.photo} data-photo={`${index}:${selected}`}
-            style={{ viewTransitionName: photoName(index, selected) }}>
+            style={{ viewTransitionName: animate ? photoName(index, selected) : "none" }}>
             <Image
               src={photo.src}
               alt={photo.alt}
@@ -69,7 +70,8 @@ function CollectionGallery({ collection, index, selected, onSelect }: {
           </figcaption>
         </figure>
 
-        <div className={styles.previews} role="group" aria-label="Choose a photo">
+        <div className={styles.previews} role="group" aria-label="Choose a photo"
+          style={{ viewTransitionName: animate ? `misc-previews-${index}` : "none" }}>
           {photos.map((item, photoIndex) => (
             <button
               key={`${item.src}-${photoIndex}`}
@@ -79,7 +81,7 @@ function CollectionGallery({ collection, index, selected, onSelect }: {
               aria-label={`View photo ${photoIndex + 1}: ${item.alt}`}
               aria-pressed={selected === photoIndex}
               className={styles.preview}
-              style={{ viewTransitionName: selected === photoIndex ? "none" : photoName(index, photoIndex) }}
+              style={{ viewTransitionName: animate && selected !== photoIndex ? photoName(index, photoIndex) : "none" }}
             >
               <Image src={item.src} alt="" fill sizes="88px" />
               <span>{String(photoIndex + 1).padStart(2, "0")}</span>
@@ -94,6 +96,7 @@ function CollectionGallery({ collection, index, selected, onSelect }: {
 export default function Misc() {
   const [overview, setOverview] = useState(false);
   const [selected, setSelected] = useState(() => collections.map(() => 0));
+  const [transitionCollection, setTransitionCollection] = useState<number | null>(null);
   const page = useRef<HTMLElement>(null);
   const mode = useRef(false);
   const busy = useRef(false);
@@ -130,6 +133,7 @@ export default function Misc() {
     };
     const finish = () => {
       busy.current = false;
+      setTransitionCollection(null);
       const focusTarget = !next && target
         ? page.current?.querySelector<HTMLElement>(`[data-event="${target.collection}"]`)
         : page.current?.querySelector<HTMLElement>("[data-overview-toggle]");
@@ -140,6 +144,7 @@ export default function Misc() {
       finish();
       return true;
     }
+    flushSync(() => setTransitionCollection((target ?? lastPhoto.current).collection));
     const transition = document.startViewTransition(update);
     // A skipped animation must still leave the requested view usable.
     void transition.ready.catch(() => {});
@@ -196,7 +201,9 @@ export default function Misc() {
             {collections.flatMap((collection, collectionIndex) => collection.photos.map((photo, photoIndex) => (
               <button key={photoName(collectionIndex, photoIndex)} type="button"
                 className={styles.gridPhoto} data-photo={`${collectionIndex}:${photoIndex}`}
-                style={{ viewTransitionName: photoName(collectionIndex, photoIndex) }}
+                style={{ viewTransitionName: transitionCollection === null || transitionCollection === collectionIndex
+                  ? photoName(collectionIndex, photoIndex)
+                  : "none" }}
                 aria-label={`Open ${photo.alt} — ${collection.title}, ${collection.date}`}
                 title={`${collection.date} · ${collection.title}`}
                 onClick={() => changeView(false, { collection: collectionIndex, photo: photoIndex })}>
@@ -211,6 +218,7 @@ export default function Misc() {
           collection={collection}
           index={index}
           selected={selected[index]}
+          animate={transitionCollection === null || transitionCollection === index}
           onSelect={(photo) => {
             setSelected((previous) => previous.map((value, event) => event === index ? photo : value));
             lastPhoto.current = { collection: index, photo };

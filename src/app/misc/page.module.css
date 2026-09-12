@@ -98,6 +98,10 @@
   height: 100%;
 }
 
+:global(html):has(.page)::view-transition-group-children(*) {
+  overflow: clip;
+}
+
 @keyframes pageFadeOut {
   to { opacity: 0; }
 }
@@ -253,6 +257,7 @@
   padding: 6px;
   margin: -6px;
   overflow-y: auto;
+  view-transition-group: contain;
 }
 
 .preview {
