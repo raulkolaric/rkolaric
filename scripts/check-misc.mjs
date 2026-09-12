@@ -4,6 +4,7 @@ import { listenForPinch } from "../src/app/misc/pinch.mjs";
 
 const root = new URL("../", import.meta.url);
 const collections = JSON.parse(readFileSync(new URL("src/content/misc.json", root), "utf8"));
+const remotePrefix = "https://photos.rkolaric.com/misc/";
 
 assert.ok(collections.length, "Add at least one collection");
 for (const collection of collections) {
@@ -15,8 +16,9 @@ for (const collection of collections) {
     for (const field of ["description", "alt"]) {
       assert.ok(photo[field]?.trim(), `${photo.src} needs ${field}`);
     }
-    assert.ok(photo.src.startsWith("/misc/"), "Store gallery images under public/misc");
-    assert.ok(existsSync(new URL(`public${photo.src}`, root)), `Missing image: ${photo.src}`);
+    const local = photo.src.startsWith("/misc/");
+    assert.ok(local || photo.src.startsWith(remotePrefix), `Use /misc/ or ${remotePrefix} for gallery images`);
+    if (local) assert.ok(existsSync(new URL(`public${photo.src}`, root)), `Missing image: ${photo.src}`);
   }
 }
 
