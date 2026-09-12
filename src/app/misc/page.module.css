@@ -85,20 +85,17 @@
   mix-blend-mode: normal;
 }
 
+/* Frame captures provide one opaque destination, avoiding crossfade and old crop ghosts. */
 :global(html):has(.page)::view-transition-old(*) {
-  animation: photoFadeOut 180ms ease both;
+  display: none;
+  animation: none;
 }
 
 :global(html):has(.page)::view-transition-new(*) {
-  animation: photoFadeIn 180ms ease both;
-}
-
-@keyframes photoFadeOut {
-  to { opacity: 0; }
-}
-
-@keyframes photoFadeIn {
-  from { opacity: 0; }
+  animation: none;
+  opacity: 1;
+  width: 100%;
+  height: 100%;
 }
 
 @keyframes pageFadeOut {
@@ -115,6 +112,7 @@
 }
 
 :global(html):has(.page)::view-transition-old(root) {
+  display: block;
   animation-name: pageFadeOut;
 }
 
@@ -265,8 +263,8 @@
   border: 0;
   background: var(--bg);
   cursor: pointer;
-  opacity: 0.5;
-  transition: opacity 150ms ease;
+  filter: brightness(0.5);
+  transition: filter 150ms ease;
 }
 
 .preview img {
@@ -286,11 +284,11 @@
 .preview[aria-pressed="true"] {
   outline: 1px solid var(--accent);
   outline-offset: 4px;
-  opacity: 1;
+  filter: brightness(1);
 }
 
 .preview:hover {
-  opacity: 1;
+  filter: brightness(1);
 }
 
 .page a:hover {

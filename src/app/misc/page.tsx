@@ -53,14 +53,14 @@ function CollectionGallery({ collection, index, selected, onSelect }: {
         </div>
 
         <figure className={styles.photoFrame}>
-          <div className={styles.photo} data-photo={`${index}:${selected}`}>
+          <div className={styles.photo} data-photo={`${index}:${selected}`}
+            style={{ viewTransitionName: photoName(index, selected) }}>
             <Image
               src={photo.src}
               alt={photo.alt}
               fill
               priority={index === 0}
               sizes="(max-width: 760px) 100vw, 55vw"
-              style={{ viewTransitionName: photoName(index, selected) }}
             />
           </div>
           <figcaption className={styles.photoCount} aria-live="polite" aria-atomic="true"
@@ -79,9 +79,9 @@ function CollectionGallery({ collection, index, selected, onSelect }: {
               aria-label={`View photo ${photoIndex + 1}: ${item.alt}`}
               aria-pressed={selected === photoIndex}
               className={styles.preview}
+              style={{ viewTransitionName: selected === photoIndex ? "none" : photoName(index, photoIndex) }}
             >
-              <Image src={item.src} alt="" fill sizes="88px"
-                style={{ viewTransitionName: selected === photoIndex ? "none" : photoName(index, photoIndex) }} />
+              <Image src={item.src} alt="" fill sizes="88px" />
               <span>{String(photoIndex + 1).padStart(2, "0")}</span>
             </button>
           ))}
@@ -196,11 +196,11 @@ export default function Misc() {
             {collections.flatMap((collection, collectionIndex) => collection.photos.map((photo, photoIndex) => (
               <button key={photoName(collectionIndex, photoIndex)} type="button"
                 className={styles.gridPhoto} data-photo={`${collectionIndex}:${photoIndex}`}
+                style={{ viewTransitionName: photoName(collectionIndex, photoIndex) }}
                 aria-label={`Open ${photo.alt} — ${collection.title}, ${collection.date}`}
                 title={`${collection.date} · ${collection.title}`}
                 onClick={() => changeView(false, { collection: collectionIndex, photo: photoIndex })}>
-                <Image src={photo.src} alt="" fill sizes="88px"
-                  style={{ viewTransitionName: photoName(collectionIndex, photoIndex) }} />
+                <Image src={photo.src} alt="" fill sizes="88px" />
               </button>
             )))}
           </div>
