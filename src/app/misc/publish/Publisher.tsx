@@ -19,6 +19,32 @@ type Upload = {
   uploadUrl: string;
 };
 
+const MAX_IMAGE_EDGE = 2400;
+
+async function optimizeImage(file: File) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    bitmap.close();
+    throw new Error(`Could not process ${file.name}.`);
+  }
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((result) => result?.type === "image/webp"
+      ? resolve(result)
+      : reject(new Error(`Could not optimize ${file.name}.`)), "image/webp", 0.82);
+  });
+  return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.webp`, {
+    type: "image/webp",
+    lastModified: file.lastModified,
+  });
+}
+
 class RequestError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -111,20 +137,23 @@ export default function Publisher({ initialAuthenticated }: { initialAuthenticat
     event.preventDefault();
     setBusy(true);
     setSuccess(false);
-    setMessage("Preparing uploads…");
+    setMessage(`Optimizing ${photos.length} image${photos.length === 1 ? "" : "s"}…`);
     let uploads: Upload[] = [];
     try {
+      const files: File[] = [];
+      for (const photo of photos) files.push(await optimizeImage(photo.file));
+      setMessage("Preparing uploads…");
       const prepared = await post<{ path: string; uploads: Upload[] }>("/api/publish/upload", {
         title,
         date,
-        files: photos.map(({ file }) => ({ name: file.name, type: file.type, size: file.size })),
+        files: files.map((file) => ({ name: file.name, type: file.type, size: file.size })),
       });
       uploads = prepared.uploads;
       setMessage(`Uploading ${uploads.length} image${uploads.length === 1 ? "" : "s"}…`);
       const results = await Promise.allSettled(uploads.map((upload, index) => fetch(upload.uploadUrl, {
         method: "PUT",
         headers: { "Content-Type": upload.type },
-        body: photos[index].file,
+        body: files[index],
       }).then((response) => {
         if (!response.ok) throw new Error(`Upload failed with ${response.status}`);
       })));

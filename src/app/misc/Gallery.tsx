@@ -47,7 +47,7 @@ function CollectionGallery({ collection, index, selected, animate, onSelect }: {
               alt={photo.alt || ""}
               fill
               priority={index === 0}
-              sizes="(max-width: 760px) 100vw, 55vw"
+              sizes="(max-width: 760px) calc(100vw - 5rem), calc(46vw - 84px)"
             />
           </div>
           <figcaption className={styles.photoCount} aria-live="polite" aria-atomic="true"
@@ -69,7 +69,7 @@ function CollectionGallery({ collection, index, selected, animate, onSelect }: {
               className={styles.preview}
               style={{ viewTransitionName: animate && selected !== photoIndex ? photoName(index, photoIndex) : "none" }}
             >
-              <Image src={item.src} alt="" fill sizes="88px" />
+              <Image src={item.src} alt="" fill sizes="88px" quality={60} />
               <span>{String(photoIndex + 1).padStart(2, "0")}</span>
             </button>
           ))}
@@ -195,7 +195,7 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
                 aria-label={`Open ${photo.alt || `photo ${photoIndex + 1}`} — ${collection.title}, ${collection.date}`}
                 title={`${collection.date} · ${collection.title}`}
                 onClick={() => changeView(false, { collection: collectionIndex, photo: photoIndex })}>
-                <Image src={photo.src} alt="" fill sizes="88px" />
+                <Image src={photo.src} alt="" fill sizes="88px" quality={60} />
               </button>
             )))}
           </div>

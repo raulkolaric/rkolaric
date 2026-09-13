@@ -6,7 +6,7 @@ async function loadCollections(): Promise<Collection[]> {
   const publicUrl = (process.env.R2_PUBLIC_URL || "https://photos.rkolaric.com").replace(/\/$/, "");
   try {
     const response = await fetch(`${publicUrl}/misc/index.json`, {
-      cache: "no-store",
+      next: { revalidate: 300 },
       signal: AbortSignal.timeout(3000),
     });
     const data: unknown = response.ok ? await response.json() : null;

@@ -365,6 +365,7 @@ export default function AsciiBackground() {
       B = 0;
     let raf = 0;
     let last = 0;
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const P: V3 = [0, 0, 0];
     const N: V3 = [0, 0, 0];
     const Q: V4 = [0, 0, 0, 0];
@@ -534,8 +535,10 @@ export default function AsciiBackground() {
     }
 
     function frame(now: number) {
-      raf = requestAnimationFrame(frame);
-      if (now - last < FRAME_MS) return;
+      if (now - last < FRAME_MS) {
+        raf = requestAnimationFrame(frame);
+        return;
+      }
       last = now;
 
       screen.fill(SPACE);
@@ -558,19 +561,31 @@ export default function AsciiBackground() {
 
       A += DA;
       B += DB;
+      if (!motion.matches) raf = requestAnimationFrame(frame);
     }
 
-    raf = requestAnimationFrame(frame);
+    function start() {
+      cancelAnimationFrame(raf);
+      last = 0;
+      raf = requestAnimationFrame(frame);
+    }
+
+    start();
+    motion.addEventListener("change", start);
 
     let resizeTimer = 0;
     function onResize() {
       clearTimeout(resizeTimer);
-      resizeTimer = window.setTimeout(fit, 150);
+      resizeTimer = window.setTimeout(() => {
+        fit();
+        if (motion.matches) start();
+      }, 150);
     }
     window.addEventListener("resize", onResize);
 
     return () => {
       cancelAnimationFrame(raf);
+      motion.removeEventListener("change", start);
       window.removeEventListener("resize", onResize);
       clearTimeout(resizeTimer);
     };
