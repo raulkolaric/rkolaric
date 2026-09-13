@@ -168,34 +168,6 @@
   font-size: 0.8125rem;
 }
 
-@keyframes scrollFade {
-  0%, 15% {
-    opacity: 0;
-    transform: translateY(48px);
-  }
-  40%, 60% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  85%, 100% {
-    opacity: 0;
-    transform: translateY(-48px);
-  }
-}
-
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .event {
-      animation: scrollFade 1s linear both;
-      animation-timeline: view();
-    }
-
-    .event:has(:focus-visible) {
-      animation: none;
-    }
-  }
-}
-
 .gallery {
   display: grid;
   grid-template-columns: minmax(240px, 1fr) minmax(0, 1fr) 88px;
