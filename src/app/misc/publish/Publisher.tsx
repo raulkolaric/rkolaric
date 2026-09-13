@@ -274,12 +274,14 @@ export default function Publisher({ initialAuthenticated, initialCollections }: 
               <h2>Events</h2>
               <span>{collections.length}</span>
             </div>
-            <button type="button" className={styles.newEvent} onClick={clearEditor}>+ New event</button>
+            <button type="button" className={styles.newEvent} disabled={busy}
+              onClick={clearEditor}>+ New event</button>
             <div className={styles.eventButtons}>
               {collections.map((collection) => {
                 const collectionPath = eventPath(collection.date, collection.title);
                 return (
-                  <button type="button" key={collectionPath} aria-pressed={editingPath === collectionPath}
+                  <button type="button" key={collectionPath} disabled={busy}
+                    aria-pressed={editingPath === collectionPath}
                     onClick={() => edit(collection)}>
                     <strong>{collection.title}</strong>
                     <span>{collection.date} · {collection.photos.length} photos</span>
@@ -290,13 +292,14 @@ export default function Publisher({ initialAuthenticated, initialCollections }: 
           </aside>
 
           <form className={styles.form} onSubmit={save}>
-            <div className={styles.editorHeading}>
+            <fieldset className={styles.editorFields} disabled={busy}>
+              <div className={styles.editorHeading}>
               <div>
                 <p>{editingPath ? "Editing event" : "New event"}</p>
                 <h2>{editingPath ? title : "Create a gallery event"}</h2>
               </div>
-              {editingPath && <button type="button" onClick={clearEditor}>Cancel</button>}
-            </div>
+                {editingPath && <button type="button" onClick={clearEditor}>Cancel</button>}
+              </div>
 
             <section className={styles.panel}>
               <h3>Event details</h3>
@@ -382,7 +385,8 @@ export default function Publisher({ initialAuthenticated, initialCollections }: 
                   ))}
                 </div>
               )}
-            </section>
+              </section>
+            </fieldset>
 
             <div className={styles.saveBar}>
               <button className={styles.publish} disabled={busy || !path || photos.length === 0}>

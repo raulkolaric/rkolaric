@@ -166,6 +166,15 @@
   min-width: 0;
 }
 
+.editorFields {
+  display: grid;
+  min-width: 0;
+  gap: 1.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .editorHeading {
   min-height: 3rem;
 }
