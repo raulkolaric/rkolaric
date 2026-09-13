@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { listenForPinch } from "../src/app/misc/pinch.mjs";
+import { photoForArrow } from "../src/app/misc/navigation.mjs";
 
 const root = new URL("../", import.meta.url);
 const collections = JSON.parse(readFileSync(new URL("src/content/misc.json", root), "utf8"));
@@ -71,4 +72,12 @@ send("gestureend");
 stop();
 assert.equal(send("wheel", { ctrlKey: true, deltaY: 100 }), false, "Listeners are removed on cleanup");
 
-console.log("Gallery content, image files, and pinch gestures checked.");
+const lengths = [3, 2, 1];
+assert.deepEqual(photoForArrow(lengths, { collection: 0, photo: 0 }, "ArrowRight"), { collection: 0, photo: 1 });
+assert.deepEqual(photoForArrow(lengths, { collection: 0, photo: 2 }, "ArrowRight"), { collection: 1, photo: 0 });
+assert.deepEqual(photoForArrow(lengths, { collection: 1, photo: 0 }, "ArrowLeft"), { collection: 0, photo: 2 });
+assert.deepEqual(photoForArrow(lengths, { collection: 0, photo: 2 }, "ArrowLeft"), { collection: 1, photo: 0 },
+  "Left from an event's last photo advances to the next event");
+assert.deepEqual(photoForArrow(lengths, { collection: 2, photo: 0 }, "ArrowRight"), { collection: 2, photo: 0 });
+
+console.log("Gallery content, gestures, and arrow navigation checked.");

@@ -5,11 +5,30 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { Collection } from "@/lib/gallery";
+import { photoForArrow } from "./navigation.mjs";
 import { listenForPinch } from "./pinch.mjs";
 import styles from "./page.module.css";
 
 type PhotoPosition = { collection: number; photo: number };
 const photoName = (collection: number, photo: number) => `misc-photo-${collection}-${photo}`;
+
+function currentPhoto(page: HTMLElement, fallback: PhotoPosition, x = innerWidth / 2, y = innerHeight / 2) {
+  const hit = document.elementFromPoint(
+    Number.isFinite(x) ? x : innerWidth / 2,
+    Number.isFinite(y) ? y : innerHeight / 2,
+  )?.closest<HTMLElement>("[data-photo]");
+  const closest = hit ?? Array.from(page.querySelectorAll<HTMLElement>("[data-event]"))
+    .sort((a, b) => {
+      const distance = (element: HTMLElement) => {
+        const rect = element.getBoundingClientRect();
+        return Math.abs(rect.top + rect.height / 2 - innerHeight / 2);
+      };
+      return distance(a) - distance(b);
+    })[0]?.querySelector<HTMLElement>('[aria-pressed="true"]');
+  if (!closest?.dataset.photo) return fallback;
+  const [collection, photo] = closest.dataset.photo.split(":").map(Number);
+  return { collection, photo };
+}
 
 function CollectionGallery({ collection, index, selected, animate, onSelect }: {
   collection: Collection;
@@ -89,6 +108,20 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
   const scrollPosition = useRef(0);
   const lastPhoto = useRef<PhotoPosition>({ collection: 0, photo: 0 });
 
+  const selectPhoto = useCallback((target: PhotoPosition, scrollEvent = false) => {
+    setSelected((previous) => previous.map((photo, index) => index === target.collection ? target.photo : photo));
+    lastPhoto.current = target;
+    requestAnimationFrame(() => {
+      const event = page.current?.querySelector<HTMLElement>(`[data-event="${target.collection}"]`);
+      if (scrollEvent) event?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+        block: "center",
+      });
+      event?.querySelector(`[data-photo="${target.collection}:${target.photo}"][aria-pressed]`)
+        ?.scrollIntoView({ behavior: "instant", block: "nearest", inline: "nearest" });
+    });
+  }, []);
+
   const changeView = useCallback((next: boolean, target?: PhotoPosition) => {
     if (busy.current || next === mode.current) return false;
     if (next) {
@@ -143,31 +176,27 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
   useEffect(() => {
     if (!page.current) return;
     return listenForPinch(window, (direction, x, y) => {
-      const hit = Number.isFinite(x) && Number.isFinite(y)
-        ? document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-photo]")
-        : null;
-      let target = lastPhoto.current;
-      if (hit?.dataset.photo) {
-        const [collection, photo] = hit.dataset.photo.split(":").map(Number);
-        target = { collection, photo };
-      } else if (!mode.current) {
-        const events = Array.from(page.current?.querySelectorAll<HTMLElement>("[data-event]") ?? []);
-        const closest = events.sort((a, b) => {
-          const center = (element: HTMLElement) => {
-            const rect = element.getBoundingClientRect();
-            return Math.abs(rect.top + rect.height / 2 - window.innerHeight / 2);
-          };
-          return center(a) - center(b);
-        })[0];
-        const active = closest?.querySelector<HTMLElement>("[data-photo]")?.dataset.photo;
-        if (active) {
-          const [collection, photo] = active.split(":").map(Number);
-          target = { collection, photo };
-        }
-      }
+      const target = currentPhoto(page.current!, lastPhoto.current, x, y);
       return changeView(direction === "out", target);
     });
   }, [changeView]);
+
+  useEffect(() => {
+    const lengths = collections.map(({ photos }) => photos.length);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (mode.current || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")
+        || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const element = event.target as HTMLElement | null;
+      if (element?.matches("input, textarea, select, [contenteditable='true']")) return;
+      const current = page.current ? currentPhoto(page.current, lastPhoto.current) : lastPhoto.current;
+      const target = photoForArrow(lengths, current, event.key);
+      if (target.collection === current.collection && target.photo === current.photo) return;
+      event.preventDefault();
+      selectPhoto(target, target.collection !== current.collection);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [collections, selectPhoto]);
 
   return (
     <main className={styles.page} ref={page}>
@@ -207,10 +236,7 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
           index={index}
           selected={selected[index]}
           animate={transitionCollection === null || transitionCollection === index}
-          onSelect={(photo) => {
-            setSelected((previous) => previous.map((value, event) => event === index ? photo : value));
-            lastPhoto.current = { collection: index, photo };
-          }}
+          onSelect={(photo) => selectPhoto({ collection: index, photo })}
         />
       ))}
 
