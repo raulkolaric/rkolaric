@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { Collection } from "@/lib/gallery";
-import { photoForArrow } from "./navigation.mjs";
+import { keyForSwipe, photoForArrow } from "./navigation.mjs";
 import { listenForPinch } from "./pinch.mjs";
 import { galleryImageSizes, preloadGalleryImage } from "./preload.mjs";
 import JellyfishBackground from "./JellyfishBackground";
@@ -32,15 +32,17 @@ function currentPhoto(page: HTMLElement, fallback: PhotoPosition, x = innerWidth
   return { collection, photo };
 }
 
-function CollectionGallery({ collection, index, selected, animate, onSelect }: {
+function CollectionGallery({ collection, index, selected, animate, onSelect, onSwipe }: {
   collection: Collection;
   index: number;
   selected: number;
   animate: boolean;
   onSelect: (photo: number) => void;
+  onSwipe: (key: "ArrowLeft" | "ArrowRight") => void;
 }) {
   const { photos } = collection;
   const photo = photos[selected];
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
 
   return (
     <section className={styles.event} aria-label={collection.title} data-event={index} tabIndex={-1}>
@@ -62,7 +64,24 @@ function CollectionGallery({ collection, index, selected, animate, onSelect }: {
 
         <figure className={styles.photoFrame}>
           <div className={styles.photo} data-photo={`${index}:${selected}`}
-            style={{ viewTransitionName: animate ? photoName(index, selected) : "none" }}>
+            style={{ viewTransitionName: animate ? photoName(index, selected) : "none" }}
+            onTouchStart={(event) => {
+              if (event.touches.length !== 1) {
+                swipeStart.current = null;
+                return;
+              }
+              const touch = event.touches[0];
+              swipeStart.current = { x: touch.clientX, y: touch.clientY };
+            }}
+            onTouchEnd={(event) => {
+              const start = swipeStart.current;
+              const touch = event.changedTouches[0];
+              swipeStart.current = null;
+              if (!start || !touch) return;
+              const key = keyForSwipe(start, { x: touch.clientX, y: touch.clientY });
+              if (key) onSwipe(key);
+            }}
+            onTouchCancel={() => { swipeStart.current = null; }}>
             <Image
               src={photo.src}
               alt={photo.alt || ""}
@@ -120,6 +139,12 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
         ?.scrollIntoView({ behavior: "instant", block: "nearest", inline: "nearest" });
     });
   }, []);
+
+  const navigatePhoto = useCallback((current: PhotoPosition, key: "ArrowLeft" | "ArrowRight") => {
+    const target = photoForArrow(collections.map(({ photos }) => photos.length), current, key);
+    if (target.collection === current.collection && target.photo === current.photo) return;
+    selectPhoto(target, target.collection !== current.collection);
+  }, [collections, selectPhoto]);
 
   const changeView = useCallback((next: boolean, target?: PhotoPosition) => {
     if (busy.current || next === mode.current) return false;
@@ -192,21 +217,18 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
   }, [changeView]);
 
   useEffect(() => {
-    const lengths = collections.map(({ photos }) => photos.length);
     const onKeyDown = (event: KeyboardEvent) => {
       if (mode.current || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")
         || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       const element = event.target as HTMLElement | null;
       if (element?.matches("input, textarea, select, [contenteditable='true']")) return;
       const current = page.current ? currentPhoto(page.current, lastPhoto.current) : lastPhoto.current;
-      const target = photoForArrow(lengths, current, event.key);
-      if (target.collection === current.collection && target.photo === current.photo) return;
       event.preventDefault();
-      selectPhoto(target, target.collection !== current.collection);
+      navigatePhoto(current, event.key);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [collections, selectPhoto]);
+  }, [navigatePhoto]);
 
   const allPhotos = collections.flatMap((collection, collectionIndex) =>
     collection.photos.map((photo, photoIndex) => ({ collection, collectionIndex, photo, photoIndex })));
@@ -251,6 +273,7 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
           selected={selected[index]}
           animate={transitionCollection === null || transitionCollection === index}
           onSelect={(photo) => selectPhoto({ collection: index, photo })}
+          onSwipe={(key) => navigatePhoto({ collection: index, photo: selected[index] }, key)}
         />
       ))}
 

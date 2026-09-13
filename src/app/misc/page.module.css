@@ -232,6 +232,7 @@
 .photo {
   position: relative;
   height: clamp(280px, 52vh, 600px);
+  touch-action: pan-y;
 }
 
 .credit {
