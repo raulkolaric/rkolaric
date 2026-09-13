@@ -1,11 +1,10 @@
 .page {
   min-height: 100svh;
-  padding: 2.5rem;
+  padding: clamp(1.5rem, 4vw, 3.5rem);
 }
 
 .header {
   display: flex;
-  width: min(900px, 100%);
   align-items: flex-start;
   justify-content: space-between;
   gap: 2rem;
@@ -19,15 +18,16 @@
 
 .header h1 {
   margin-top: 0.6rem;
-  font-size: 2rem;
+  font-size: clamp(2rem, 4vw, 3rem);
   font-weight: 500;
-  letter-spacing: -0.01em;
-  line-height: 1.15;
+  letter-spacing: -0.04em;
+  line-height: 1;
 }
 
 .page button,
-.filePicker {
-  border: 1px solid var(--muted);
+.filePicker,
+.emptyPhotos {
+  border: 1px solid color-mix(in srgb, var(--muted) 55%, transparent);
   border-radius: 0;
   background: var(--bg);
   color: var(--fg);
@@ -40,25 +40,160 @@
 }
 
 .page button:hover:not(:disabled),
-.filePicker:hover {
+.filePicker:hover,
+.emptyPhotos:hover {
   border-color: var(--accent);
   color: var(--accent);
 }
 
-.page button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
+.page button:focus-visible,
+.filePicker:focus-within,
+.emptyPhotos:focus-within,
+.page input:focus-visible,
+.page textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
-.login,
-.form {
-  display: grid;
-  width: min(900px, 100%);
-  gap: 1.5rem;
+.page button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
 }
 
 .login {
+  display: grid;
   width: min(420px, 100%);
+  gap: 1.25rem;
+  padding: 1.5rem;
+  border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent);
+}
+
+.login button {
+  justify-self: start;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 900px);
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: start;
+}
+
+.eventList {
+  position: sticky;
+  top: 2rem;
+  display: grid;
+  max-height: calc(100svh - 4rem);
+  gap: 1rem;
+}
+
+.listHeading,
+.editorHeading,
+.photoHeading,
+.saveBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.listHeading h2,
+.editorHeading h2,
+.panel h3,
+.photoHeading p,
+.editorHeading p,
+.fileName {
+  margin: 0;
+}
+
+.listHeading h2,
+.editorHeading h2 {
+  font-size: 1.35rem;
+  font-weight: 500;
+}
+
+.listHeading span,
+.photoHeading p,
+.editorHeading p,
+.fileName {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.newEvent {
+  width: 100%;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  text-align: left;
+}
+
+.eventButtons {
+  display: grid;
+  gap: 0.4rem;
+  overflow-y: auto;
+  scrollbar-color: color-mix(in srgb, var(--muted) 55%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+.eventButtons button {
+  display: grid;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.9rem;
+  border-color: transparent;
+  text-align: left;
+}
+
+.eventButtons button:hover,
+.eventButtons button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg));
+}
+
+.eventButtons strong {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.eventButtons span {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.form {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+.editorHeading {
+  min-height: 3rem;
+}
+
+.editorHeading > div {
+  min-width: 0;
+}
+
+.editorHeading h2 {
+  margin-top: 0.35rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel {
+  display: grid;
+  gap: 1.5rem;
+  padding: clamp(1rem, 3vw, 1.75rem);
+  border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent);
+  background: color-mix(in srgb, var(--fg) 1.5%, var(--bg));
+}
+
+.panel h3 {
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .login label,
@@ -66,19 +201,23 @@
   display: grid;
   gap: 0.5rem;
   color: var(--muted);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
+}
+
+.form label span {
+  opacity: 0.7;
 }
 
 .page input,
 .page textarea {
   width: 100%;
-  border: 1px solid color-mix(in srgb, var(--muted) 65%, transparent);
+  border: 1px solid color-mix(in srgb, var(--muted) 55%, transparent);
   border-radius: 0;
   outline: 0;
   background: var(--bg);
   color: var(--fg);
   font: inherit;
-  font-size: 1rem;
+  font-size: 0.9rem;
 }
 
 .page input {
@@ -91,30 +230,31 @@
   resize: vertical;
 }
 
-.page input:focus,
-.page textarea:focus {
-  border-color: var(--accent);
-}
-
-.eventFields {
+.eventFields,
+.creditFields {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
   gap: 1rem;
 }
 
+.creditFields {
+  grid-template-columns: minmax(150px, 0.8fr) minmax(220px, 1.2fr);
+}
+
 .path {
+  margin: -0.5rem 0 0;
   overflow-wrap: anywhere;
   color: var(--muted);
-  font-size: 0.8125rem;
+  font-size: 0.7rem;
 }
 
 .filePicker {
   display: inline-block !important;
-  justify-self: start;
-  padding: 0.7rem 1rem;
+  padding: 0.65rem 0.9rem;
 }
 
-.filePicker input {
+.filePicker input,
+.emptyPhotos input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -124,6 +264,21 @@
   white-space: nowrap;
 }
 
+.emptyPhotos {
+  display: grid !important;
+  place-items: center;
+  min-height: 180px;
+  gap: 0.4rem !important;
+  border-style: dashed;
+  text-align: center;
+}
+
+.emptyPhotos strong {
+  color: var(--fg);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
 .photos {
   display: grid;
   gap: 1rem;
@@ -131,57 +286,126 @@
 
 .photo {
   display: grid;
-  gap: 1rem;
-  padding: 1.25rem;
-  border: 1px solid color-mix(in srgb, var(--muted) 45%, transparent);
+  grid-template-columns: minmax(160px, 230px) minmax(0, 1fr);
+  gap: 1.25rem;
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--muted) 30%, transparent);
 }
 
 .photo legend {
-  max-width: 100%;
-  padding: 0 0.5rem;
-  overflow-wrap: anywhere;
-  color: var(--fg);
+  padding: 0 0.45rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .preview {
   position: relative;
-  width: min(360px, 100%);
+  width: 100%;
   aspect-ratio: 4 / 3;
+  background: color-mix(in srgb, var(--fg) 3%, var(--bg));
 }
 
 .preview img {
   object-fit: contain;
-  object-position: left center;
 }
 
-.remove {
-  justify-self: start;
+.photoFields {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+}
+
+.fileName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.photoActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.photoActions button {
+  padding: 0.45rem 0.65rem;
+  font-size: 0.72rem;
+}
+
+.photoActions .remove {
+  margin-left: auto;
+  color: #f87171;
+}
+
+.saveBar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  min-height: 5rem;
+  padding: 1rem 0;
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: blur(12px);
 }
 
 .publish {
-  justify-self: start;
+  border-color: var(--accent) !important;
+  background: var(--accent) !important;
+  color: var(--bg) !important;
+  font-weight: 500 !important;
 }
 
 .message,
 .success {
-  margin-top: 1.5rem;
-  padding: 1rem;
+  margin: 0;
   overflow-wrap: anywhere;
-  border: 1px solid currentColor;
-  color: #ef4444;
-  font-size: 0.8125rem;
+  color: #f87171;
+  font-size: 0.75rem;
+}
+
+.page > .message {
+  width: min(420px, 100%);
+  margin-top: 1rem;
 }
 
 .success {
   color: var(--accent);
 }
 
-@media (max-width: 600px) {
-  .page {
-    padding: 1.5rem;
+@media (max-width: 900px) {
+  .workspace {
+    grid-template-columns: 1fr;
   }
 
-  .eventFields {
+  .eventList {
+    position: static;
+    max-height: none;
+  }
+
+  .eventButtons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: 250px;
+  }
+}
+
+@media (max-width: 600px) {
+  .header {
+    margin-bottom: 2rem;
+  }
+
+  .eventButtons,
+  .eventFields,
+  .creditFields,
+  .photo {
     grid-template-columns: 1fr;
+  }
+
+  .photoActions .remove {
+    margin-left: 0;
+  }
+
+  .saveBar {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
