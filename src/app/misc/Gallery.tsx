@@ -114,10 +114,7 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
     lastPhoto.current = target;
     requestAnimationFrame(() => {
       const event = page.current?.querySelector<HTMLElement>(`[data-event="${target.collection}"]`);
-      if (scrollEvent) event?.scrollIntoView({
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
-        block: "center",
-      });
+      if (scrollEvent) event?.scrollIntoView({ behavior: "instant", block: "center" });
       event?.querySelector(`[data-photo="${target.collection}:${target.photo}"][aria-pressed]`)
         ?.scrollIntoView({ behavior: "instant", block: "nearest", inline: "nearest" });
     });
