@@ -70,6 +70,9 @@ try {
   assert.equal((await request("/api/publish/event", {}, tampered)).status, 401, "Tampered sessions fail");
   assert.equal((await request("/api/publish/upload", { title: "", date: "nope", files: [] }, cookie)).status, 400,
     "Authenticated input is validated before storage access");
+  assert.equal((await request("/api/publish/upload", {
+    title: "Test", date: "2026-09-12", files: [{ name: "photo.jpg", type: "image/jpeg", size: 123 }],
+  }, cookie)).status, 400, "The upload API only accepts optimized WebP images");
   assert.equal((await request("/api/publish/event", {
     title: "Test", date: "2026-09-12", photos: [{ key: "../../secret", description: "x", alt: "x" }],
   }, cookie)).status, 400, "Object paths cannot traverse out of the event");

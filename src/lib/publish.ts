@@ -173,6 +173,7 @@ const fileStem = (name: string) => name.replace(/\.[^.]*$/, "")
   .replace(/-$/, "") || "photo";
 
 type UploadManifest = { name: string; type: string; size: number };
+const UPLOAD_TYPE = "image/webp";
 
 const cleanEventPath = (path: unknown) => {
   if (typeof path !== "string" || !/^misc\/\d{4}-\d{2}-\d{2}-[a-z0-9-]+\/$/.test(path)) {
@@ -200,8 +201,8 @@ export async function prepareUploads(value: unknown) {
     if (typeof item.name !== "string" || !item.name || item.name.length > 255) {
       throw new PublishError(400, "Invalid filename.");
     }
-    if (typeof item.type !== "string" || !TYPES.has(item.type)) {
-      throw new PublishError(400, "Use JPEG, WebP, or PNG images.");
+    if (item.type !== UPLOAD_TYPE) {
+      throw new PublishError(400, "Images must be optimized as WebP before upload.");
     }
     if (typeof item.size !== "number" || !Number.isInteger(item.size) || item.size < 1 || item.size > MAX_FILE_SIZE) {
       throw new PublishError(400, "Each image must be 15 MB or smaller.");
@@ -217,8 +218,7 @@ export async function prepareUploads(value: unknown) {
     throw new PublishError(409, "That event path already exists. Change the title.");
   }
   const records = files.map((file, index) => {
-    const extension = TYPES.get(file.type)!;
-    const key = `${path}${String((edited?.collection.photos.length || 0) + index + 1).padStart(2, "0")}-${fileStem(file.name)}-${randomBytes(5).toString("hex")}.${extension}`;
+    const key = `${path}${String((edited?.collection.photos.length || 0) + index + 1).padStart(2, "0")}-${fileStem(file.name)}-${randomBytes(5).toString("hex")}.webp`;
     return { file, key };
   });
   if ((await Promise.all(records.map(({ key }) => objectExists(key)))).some(Boolean)) {
