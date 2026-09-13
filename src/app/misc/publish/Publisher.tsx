@@ -99,12 +99,16 @@ export default function Publisher({ initialAuthenticated, initialCollections }: 
   const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState<PhotoInput[]>([]);
+  const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState(false);
   const path = eventPath(date, title);
 
-  const clearEditor = () => {
+  const canDiscard = () => !dirty || window.confirm("Discard your unsaved changes?");
+
+  const clearEditor = (force = false) => {
+    if (!force && !canDiscard()) return;
     setEditingPath(undefined);
     setTitle("");
     setDate("");
@@ -112,9 +116,11 @@ export default function Publisher({ initialAuthenticated, initialCollections }: 
     setPhotos([]);
     setMessage("");
     setSuccess(false);
+    setDirty(false);
   };
 
   const edit = (collection: Collection) => {
+    if (!canDiscard()) return;
     setEditingPath(eventPath(collection.date, collection.title));
     setTitle(collection.title);
     setDate(collection.date);
@@ -122,6 +128,7 @@ export default function Publisher({ initialAuthenticated, initialCollections }: 
     setPhotos(inputPhotos(collection));
     setMessage("");
     setSuccess(false);
+    setDirty(false);
   };
 
   const login = async (event: FormEvent) => {
@@ -146,7 +153,7 @@ export default function Publisher({ initialAuthenticated, initialCollections }: 
     } finally {
       setAuthenticated(false);
       setBusy(false);
-      clearEditor();
+      clearEditor(true);
     }
   };
 
@@ -180,6 +187,7 @@ export default function Publisher({ initialAuthenticated, initialCollections }: 
   };
 
   const movePhoto = (index: number, offset: number) => {
+    setDirty(true);
     setPhotos((current) => {
       const next = [...current];
       [next[index], next[index + offset]] = [next[index + offset], next[index]];
@@ -238,6 +246,7 @@ export default function Publisher({ initialAuthenticated, initialCollections }: 
         : [result.collection, ...current]).sort((a, b) => b.date.localeCompare(a.date)));
       setEditingPath(result.path);
       setPhotos(inputPhotos(result.collection));
+      setDirty(false);
       setSuccess(true);
       setMessage(editingPath ? "Changes saved." : "Event published.");
     } catch (error) {
@@ -275,7 +284,7 @@ export default function Publisher({ initialAuthenticated, initialCollections }: 
               <span>{collections.length}</span>
             </div>
             <button type="button" className={styles.newEvent} disabled={busy}
-              onClick={clearEditor}>+ New event</button>
+              onClick={() => clearEditor()}>+ New event</button>
             <div className={styles.eventButtons}>
               {collections.map((collection) => {
                 const collectionPath = eventPath(collection.date, collection.title);
@@ -291,14 +300,14 @@ export default function Publisher({ initialAuthenticated, initialCollections }: 
             </div>
           </aside>
 
-          <form className={styles.form} onSubmit={save}>
+          <form className={styles.form} onSubmit={save} onChange={() => setDirty(true)}>
             <fieldset className={styles.editorFields} disabled={busy}>
               <div className={styles.editorHeading}>
               <div>
                 <p>{editingPath ? "Editing event" : "New event"}</p>
                 <h2>{editingPath ? title : "Create a gallery event"}</h2>
               </div>
-                {editingPath && <button type="button" onClick={clearEditor}>Cancel</button>}
+                {editingPath && <button type="button" onClick={() => clearEditor()}>Cancel</button>}
               </div>
 
             <section className={styles.panel}>
@@ -376,7 +385,10 @@ export default function Publisher({ initialAuthenticated, initialCollections }: 
                           <button type="button" disabled={index === 0} onClick={() => movePhoto(index, -1)}>Move up</button>
                           <button type="button" disabled={index === photos.length - 1} onClick={() => movePhoto(index, 1)}>Move down</button>
                           <button type="button" className={styles.remove}
-                            onClick={() => setPhotos((current) => current.filter(({ id }) => id !== photo.id))}>
+                            onClick={() => {
+                              setDirty(true);
+                              setPhotos((current) => current.filter(({ id }) => id !== photo.id));
+                            }}>
                             Remove
                           </button>
                         </div>
