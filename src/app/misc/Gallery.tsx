@@ -7,6 +7,7 @@ import { flushSync } from "react-dom";
 import type { Collection } from "@/lib/gallery";
 import { photoForArrow } from "./navigation.mjs";
 import { listenForPinch } from "./pinch.mjs";
+import { galleryImageSizes, preloadGalleryImage } from "./preload.mjs";
 import styles from "./page.module.css";
 
 type PhotoPosition = { collection: number; photo: number };
@@ -66,7 +67,7 @@ function CollectionGallery({ collection, index, selected, animate, onSelect }: {
               alt={photo.alt || ""}
               fill
               priority={index === 0}
-              sizes="(max-width: 760px) calc(100vw - 5rem), calc(46vw - 84px)"
+              sizes={galleryImageSizes}
             />
           </div>
           <figcaption className={styles.photoCount} aria-live="polite" aria-atomic="true"
@@ -172,6 +173,17 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
     void transition.finished.then(finish, finish);
     return true;
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      for (const src of collections.flatMap(({ photos }) => photos.map(({ src }) => src))) {
+        if (cancelled) return;
+        await preloadGalleryImage(src);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [collections]);
 
   useEffect(() => {
     if (!page.current) return;

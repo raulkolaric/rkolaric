@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import AsciiBackground from "@/components/AsciiBackground";
+import { preloadGalleryImage } from "./misc/preload.mjs";
 // import BrasiliaClock from "@/components/BrasiliaClock";
 
 // Left-column links. Add/remove freely — order is preserved.
@@ -25,6 +26,27 @@ export default function Home() {
     if (saved === "light" || saved === "dark") {
       setTheme(saved);
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void fetch("/api/misc/prefetch", { signal: controller.signal })
+        .then((response) => response.ok ? response.json() as Promise<string[]> : [])
+        .then(async (photos) => {
+          for (const src of photos) {
+            if (cancelled) return;
+            await preloadGalleryImage(src);
+          }
+        })
+        .catch(() => {});
+    }, 750);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearTimeout(timer);
+    };
   }, []);
 
   const toggleTheme = () => {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { listenForPinch } from "../src/app/misc/pinch.mjs";
 import { photoForArrow } from "../src/app/misc/navigation.mjs";
+import { galleryImageSizes, gallerySrcSet } from "../src/app/misc/preload.mjs";
 
 const root = new URL("../", import.meta.url);
 const collections = JSON.parse(readFileSync(new URL("src/content/misc.json", root), "utf8"));
@@ -79,5 +80,7 @@ assert.deepEqual(photoForArrow(lengths, { collection: 1, photo: 0 }, "ArrowLeft"
 assert.deepEqual(photoForArrow(lengths, { collection: 0, photo: 2 }, "ArrowLeft"), { collection: 1, photo: 0 },
   "Left from an event's last photo advances to the next event");
 assert.deepEqual(photoForArrow(lengths, { collection: 2, photo: 0 }, "ArrowRight"), { collection: 2, photo: 0 });
+assert.match(galleryImageSizes, /46vw/, "Preloads use the gallery's rendered desktop width");
+assert.match(gallerySrcSet("https://example.com/photo.jpg"), /w=1080&q=75 1080w/, "Preloads include retina widths");
 
-console.log("Gallery content, gestures, and arrow navigation checked.");
+console.log("Gallery content, gestures, arrow navigation, and preload URLs checked.");
