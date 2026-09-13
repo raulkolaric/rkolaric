@@ -21,15 +21,6 @@
   white-space: pre;
   pointer-events: none;
   opacity: 0.24;
-  animation: jellyfishFloat 12s ease-in-out infinite alternate;
-}
-
-@keyframes jellyfishFloat {
-  to { transform: translate(-1rem, -1.5rem) rotate(-1deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .jellyfishBackground { animation: none; }
 }
 
 @media (max-width: 760px) {
