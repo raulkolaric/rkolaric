@@ -32,8 +32,8 @@ const waitForServer = async () => {
   throw new Error("Timed out waiting for the test server");
 };
 
-const post = (path, body, cookie) => fetch(`${origin}${path}`, {
-  method: "POST",
+const request = (path, body, cookie, method = "POST") => fetch(`${origin}${path}`, {
+  method,
   headers: {
     "Content-Type": "application/json",
     ...(cookie ? { Cookie: cookie } : {}),
@@ -47,11 +47,12 @@ try {
   const loginPage = await fetch(`${origin}/misc/publish`);
   assert.match(await loginPage.text(), /Publishing password/, "Unauthenticated visitors see the password form");
 
-  assert.equal((await post("/api/publish/upload", {})).status, 401, "Uploads require a session");
-  assert.equal((await post("/api/publish/event", {})).status, 401, "Metadata changes require a session");
-  assert.equal((await post("/api/publish/login", { password: "wrong-password" })).status, 401, "Wrong passwords fail");
+  assert.equal((await request("/api/publish/upload", {})).status, 401, "Uploads require a session");
+  assert.equal((await request("/api/publish/event", {})).status, 401, "Metadata changes require a session");
+  assert.equal((await request("/api/publish/event", {}, undefined, "PUT")).status, 401, "Event edits require a session");
+  assert.equal((await request("/api/publish/login", { password: "wrong-password" })).status, 401, "Wrong passwords fail");
 
-  const login = await post("/api/publish/login", { password });
+  const login = await request("/api/publish/login", { password });
   assert.equal(login.status, 200, "The configured password succeeds");
   const setCookie = login.headers.get("set-cookie") || "";
   assert.match(setCookie, /publish_session=/);
@@ -66,14 +67,17 @@ try {
   assert.match(await authenticatedPage.text(), /Event title/, "A valid session sees the publisher");
 
   const tampered = `${cookie.slice(0, -1)}${cookie.endsWith("a") ? "b" : "a"}`;
-  assert.equal((await post("/api/publish/event", {}, tampered)).status, 401, "Tampered sessions fail");
-  assert.equal((await post("/api/publish/upload", { title: "", date: "nope", files: [] }, cookie)).status, 400,
+  assert.equal((await request("/api/publish/event", {}, tampered)).status, 401, "Tampered sessions fail");
+  assert.equal((await request("/api/publish/upload", { title: "", date: "nope", files: [] }, cookie)).status, 400,
     "Authenticated input is validated before storage access");
-  assert.equal((await post("/api/publish/event", {
+  assert.equal((await request("/api/publish/event", {
     title: "Test", date: "2026-09-12", photos: [{ key: "../../secret", description: "x", alt: "x" }],
   }, cookie)).status, 400, "Object paths cannot traverse out of the event");
+  assert.equal((await request("/api/publish/event", {
+    originalPath: "../../secret", title: "Test", date: "2026-09-12", photos: [{}],
+  }, cookie, "PUT")).status, 400, "Event edits require a valid original path");
 
-  const logout = await post("/api/publish/logout", {});
+  const logout = await request("/api/publish/logout", {});
   assert.equal(logout.status, 200);
   assert.match(logout.headers.get("set-cookie") || "", /Max-Age=0/i, "Logout clears the session");
 

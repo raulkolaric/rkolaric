@@ -174,6 +174,19 @@ const fileStem = (name: string) => name.replace(/\.[^.]*$/, "")
 
 type UploadManifest = { name: string; type: string; size: number };
 
+const cleanEventPath = (path: unknown) => {
+  if (typeof path !== "string" || !/^misc\/\d{4}-\d{2}-\d{2}-[a-z0-9-]+\/$/.test(path)) {
+    throw new PublishError(400, "Invalid event path.");
+  }
+  return path;
+};
+
+const existingEvent = (collections: Collection[], path: string) => {
+  const index = collections.findIndex((collection) => eventPath(collection.date, collection.title) === path);
+  if (index < 0) throw new PublishError(404, "Event not found.");
+  return { collection: collections[index], index };
+};
+
 export async function prepareUploads(value: unknown) {
   if (typeof value !== "object" || value === null) throw new PublishError(400, "Invalid upload request.");
   const body = value as Record<string, unknown>;
@@ -196,11 +209,16 @@ export async function prepareUploads(value: unknown) {
     return { name: item.name, type: item.type, size: item.size };
   });
 
+  const originalPath = body.originalPath === undefined ? undefined : cleanEventPath(body.originalPath);
   const current = await metadata();
-  if (eventExists(current.collections, path)) throw new PublishError(409, "That event path already exists. Change the title.");
+  const edited = originalPath === undefined ? undefined : existingEvent(current.collections, originalPath);
+  if (current.collections.some((collection, index) =>
+    index !== edited?.index && eventPath(collection.date, collection.title) === path)) {
+    throw new PublishError(409, "That event path already exists. Change the title.");
+  }
   const records = files.map((file, index) => {
     const extension = TYPES.get(file.type)!;
-    const key = `${path}${String(index + 1).padStart(2, "0")}-${fileStem(file.name)}.${extension}`;
+    const key = `${path}${String((edited?.collection.photos.length || 0) + index + 1).padStart(2, "0")}-${fileStem(file.name)}-${randomBytes(5).toString("hex")}.${extension}`;
     return { file, key };
   });
   if ((await Promise.all(records.map(({ key }) => objectExists(key)))).some(Boolean)) {
@@ -240,7 +258,56 @@ async function verifyImage(key: string) {
   }
 }
 
-type PendingPhoto = { key: string; alt?: string };
+type PendingPhoto = {
+  key?: string;
+  src?: string;
+  alt?: string;
+  photographer?: string;
+  source?: string;
+};
+
+const cleanPhoto = (value: unknown, keyPattern: RegExp, existingSources?: Set<string>): PendingPhoto => {
+  if (typeof value !== "object" || value === null) throw new PublishError(400, "Invalid photo metadata.");
+  const item = value as Record<string, unknown>;
+  const key = typeof item.key === "string" && keyPattern.test(item.key) ? item.key : undefined;
+  const src = typeof item.src === "string" && existingSources?.has(item.src) ? item.src : undefined;
+  if ((!key && !src) || (key && src)) throw new PublishError(400, "Invalid photo path.");
+  const alt = cleanOptional(item.alt, 500, "Alt text");
+  const photographer = cleanOptional(item.photographer, 160, "Photographer");
+  const source = cleanOptional(item.source, 2048, "Photo source");
+  if (source) {
+    try {
+      if (new URL(source).protocol !== "https:") throw new Error();
+    } catch {
+      throw new PublishError(400, "Photo source must be an HTTPS URL.");
+    }
+  }
+  return {
+    ...(key ? { key } : { src }),
+    ...(alt ? { alt } : {}),
+    ...(photographer ? { photographer } : {}),
+    ...(source ? { source } : {}),
+  };
+};
+
+const writeMetadata = async (collections: Collection[], etag?: string) => {
+  try {
+    await r2().send(new PutObjectCommand({
+      Bucket: bucket(),
+      Key: INDEX_KEY,
+      Body: `${JSON.stringify(collections, null, 2)}\n`,
+      ContentType: "application/json; charset=utf-8",
+      CacheControl: "no-cache",
+      ...(etag ? { IfMatch: etag } : { IfNoneMatch: "*" }),
+    }));
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "$metadata" in error
+      && (error.$metadata as { httpStatusCode?: number }).httpStatusCode === 412) {
+      throw new PublishError(409, "The gallery changed while saving. Reload and try again.");
+    }
+    throw error;
+  }
+};
 
 export async function publishEvent(value: unknown) {
   if (typeof value !== "object" || value === null) throw new PublishError(400, "Invalid event.");
@@ -252,15 +319,10 @@ export async function publishEvent(value: unknown) {
     throw new PublishError(400, "Add between 1 and 50 photos.");
   }
   const keyPattern = new RegExp(`^${path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\d{2}-[a-z0-9-]+\\.(jpg|webp|png)$`);
-  const photos = body.photos.map((photo): PendingPhoto => {
-    if (typeof photo !== "object" || photo === null) throw new PublishError(400, "Invalid photo metadata.");
-    const item = photo as Record<string, unknown>;
-    if (typeof item.key !== "string" || !keyPattern.test(item.key)) throw new PublishError(400, "Invalid photo path.");
-    const alt = cleanOptional(item.alt, 500, "Alt text");
-    return { key: item.key, ...(alt ? { alt } : {}) };
-  });
-  if (new Set(photos.map(({ key }) => key)).size !== photos.length) throw new PublishError(400, "Photo paths must be unique.");
-  await Promise.all(photos.map(({ key }) => verifyImage(key)));
+  const photos = body.photos.map((photo) => cleanPhoto(photo, keyPattern));
+  const keys = photos.map(({ key }) => key!);
+  if (new Set(keys).size !== photos.length) throw new PublishError(400, "Photo paths must be unique.");
+  await Promise.all(keys.map(verifyImage));
 
   const current = await metadata();
   if (eventExists(current.collections, path)) throw new PublishError(409, "That event path already exists. Change the title.");
@@ -268,23 +330,54 @@ export async function publishEvent(value: unknown) {
     title,
     date: body.date as string,
     ...(description ? { description } : {}),
-    photos: photos.map(({ key, alt }) => ({ src: `${publicUrl()}/${key}`, ...(alt ? { alt } : {}) })),
+    photos: photos.map(({ key, alt, photographer, source }) => ({
+      src: `${publicUrl()}/${key}`,
+      ...(alt ? { alt } : {}),
+      ...(photographer ? { photographer } : {}),
+      ...(source ? { source } : {}),
+    })),
   };
-  try {
-    await r2().send(new PutObjectCommand({
-      Bucket: bucket(),
-      Key: INDEX_KEY,
-      Body: `${JSON.stringify([collection, ...current.collections], null, 2)}\n`,
-      ContentType: "application/json; charset=utf-8",
-      CacheControl: "no-cache",
-      ...(current.etag ? { IfMatch: current.etag } : { IfNoneMatch: "*" }),
-    }));
-  } catch (error) {
-    if (typeof error === "object" && error !== null && "$metadata" in error
-      && (error.$metadata as { httpStatusCode?: number }).httpStatusCode === 412) {
-      throw new PublishError(409, "The gallery changed while publishing. Retry with a new event path.");
-    }
-    throw error;
+  await writeMetadata([collection, ...current.collections], current.etag);
+  return { path, collection };
+}
+
+export async function updateEvent(value: unknown) {
+  if (typeof value !== "object" || value === null) throw new PublishError(400, "Invalid event.");
+  const body = value as Record<string, unknown>;
+  const originalPath = cleanEventPath(body.originalPath);
+  const current = await metadata();
+  const original = existingEvent(current.collections, originalPath);
+  const title = cleanTitle(body.title);
+  const description = cleanOptional(body.description, 1000, "Description");
+  const path = pathFor(body.date, title);
+  if (current.collections.some((collection, index) =>
+    index !== original.index && eventPath(collection.date, collection.title) === path)) {
+    throw new PublishError(409, "That event path already exists. Change the title.");
   }
+  if (!Array.isArray(body.photos) || body.photos.length < 1 || body.photos.length > 50) {
+    throw new PublishError(400, "Keep between 1 and 50 photos.");
+  }
+  const keyPattern = new RegExp(`^${path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\d{2}-[a-z0-9-]+\\.(jpg|webp|png)$`);
+  const existingSources = new Set(original.collection.photos.map(({ src }) => src));
+  const photos = body.photos.map((photo) => cleanPhoto(photo, keyPattern, existingSources));
+  const identities = photos.map(({ key, src }) => key || src!);
+  if (new Set(identities).size !== photos.length) throw new PublishError(400, "Photo paths must be unique.");
+  await Promise.all(photos.flatMap(({ key }) => key ? [verifyImage(key)] : []));
+
+  const collection: Collection = {
+    title,
+    date: body.date as string,
+    ...(description ? { description } : {}),
+    photos: photos.map(({ key, src, alt, photographer, source }) => ({
+      src: src || `${publicUrl()}/${key}`,
+      ...(alt ? { alt } : {}),
+      ...(photographer ? { photographer } : {}),
+      ...(source ? { source } : {}),
+    })),
+  };
+  const collections = current.collections
+    .map((item, index) => index === original.index ? collection : item)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  await writeMetadata(collections, current.etag);
   return { path, collection };
 }
