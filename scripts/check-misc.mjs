@@ -3,10 +3,16 @@ import { existsSync, readFileSync } from "node:fs";
 import { listenForPinch } from "../src/app/misc/pinch.mjs";
 import { photoForArrow } from "../src/app/misc/navigation.mjs";
 import { galleryImageSizes, gallerySrcSet } from "../src/app/misc/preload.mjs";
+import { createSnake, stepSnake } from "../src/app/misc/snake.mjs";
 
 const root = new URL("../", import.meta.url);
 const collections = JSON.parse(readFileSync(new URL("src/content/misc.json", root), "utf8"));
 const remotePrefix = "https://photos.rkolaric.com/misc/";
+
+const snake = createSnake(80, 30);
+const next = stepSnake({ snake, apples: [{ x: 45, y: 15 }, { x: 10, y: 10 }], direction: [1, 0] }, 80, 30, () => 0.5);
+assert.equal(next.snake.length, snake.length, "Snake length stays fixed");
+assert.ok(next.apples.length <= 2, "At most two apples are visible");
 
 for (const collection of collections) {
   assert.ok(collection.title.trim(), "Each collection needs a title");
