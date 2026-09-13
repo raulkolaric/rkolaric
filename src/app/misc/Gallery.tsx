@@ -8,7 +8,7 @@ import type { Collection } from "@/lib/gallery";
 import { photoForArrow } from "./navigation.mjs";
 import { listenForPinch } from "./pinch.mjs";
 import { galleryImageSizes, preloadGalleryImage } from "./preload.mjs";
-import SnakeBackground from "./SnakeBackground";
+import JellyfishBackground from "./JellyfishBackground";
 import styles from "./page.module.css";
 
 type PhotoPosition = { collection: number; photo: number };
@@ -213,7 +213,7 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
 
   return (
     <main className={styles.page} ref={page}>
-      <SnakeBackground />
+      <JellyfishBackground />
       <header className={styles.header}>
         <Link href="/">Raul Kolarić</Link>
         <h1>/misc</h1>

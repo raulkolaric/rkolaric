@@ -6,21 +6,34 @@
   flex-direction: column;
 }
 
-.page > :not(.snakeBackground) {
+.page > :not(.jellyfishBackground) {
   position: relative;
   z-index: 1;
 }
 
-.snakeBackground {
+.jellyfishBackground {
   position: fixed;
-  inset: 0;
+  top: 2vh;
+  right: 2vw;
   z-index: 0;
-  overflow: hidden;
   color: var(--accent);
-  font: 0.55rem / 1.08 "SF Mono", "Menlo", "Consolas", monospace;
+  font: clamp(0.55rem, 1.2vh, 0.8rem) / 1 var(--font-jetbrains-mono), monospace;
   white-space: pre;
   pointer-events: none;
-  opacity: 0.65;
+  opacity: 0.24;
+  animation: jellyfishFloat 12s ease-in-out infinite alternate;
+}
+
+@keyframes jellyfishFloat {
+  to { transform: translate(-1rem, -1.5rem) rotate(-1deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jellyfishBackground { animation: none; }
+}
+
+@media (max-width: 760px) {
+  .jellyfishBackground { right: -1rem; }
 }
 
 .header {
@@ -228,7 +241,6 @@
 .photo {
   position: relative;
   height: clamp(280px, 52vh, 600px);
-  background: color-mix(in srgb, var(--fg) 4%, var(--bg));
 }
 
 .credit {
