@@ -3,13 +3,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { eventPath } from "@/lib/gallery";
+import { eventPath, type Collection } from "@/lib/gallery";
 import styles from "./page.module.css";
 
 type PhotoInput = {
   id: string;
-  file: File;
+  file?: File;
+  src?: string;
   alt: string;
+  photographer: string;
+  source: string;
 };
 
 type Upload = {
@@ -51,9 +54,9 @@ class RequestError extends Error {
   }
 }
 
-async function post<T>(path: string, body?: unknown): Promise<T> {
+async function request<T>(path: string, body?: unknown, method = "POST"): Promise<T> {
   const response = await fetch(path, {
-    method: "POST",
+    method,
     headers: body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -62,14 +65,35 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
   return data;
 }
 
-function Preview({ file, alt }: { file: File; alt: string }) {
-  const [src] = useState(() => URL.createObjectURL(file));
-  useEffect(() => () => URL.revokeObjectURL(src), [src]);
-  return <div className={styles.preview}><Image src={src} alt={alt} fill unoptimized sizes="360px" /></div>;
+function Preview({ photo }: { photo: PhotoInput }) {
+  const [src, setSrc] = useState(photo.src || "");
+  useEffect(() => {
+    if (!photo.file) {
+      setSrc(photo.src || "");
+      return;
+    }
+    const objectUrl = URL.createObjectURL(photo.file);
+    setSrc(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [photo.file, photo.src]);
+  return <div className={styles.preview}>{src && <Image src={src} alt={photo.alt} fill unoptimized sizes="360px" />}</div>;
 }
 
-export default function Publisher({ initialAuthenticated }: { initialAuthenticated: boolean }) {
+const inputPhotos = (collection: Collection): PhotoInput[] => collection.photos.map((photo) => ({
+  id: crypto.randomUUID(),
+  src: photo.src,
+  alt: photo.alt || "",
+  photographer: photo.photographer || "",
+  source: photo.source || "",
+}));
+
+export default function Publisher({ initialAuthenticated, initialCollections }: {
+  initialAuthenticated: boolean;
+  initialCollections: Collection[];
+}) {
   const [authenticated, setAuthenticated] = useState(initialAuthenticated);
+  const [collections, setCollections] = useState(initialCollections);
+  const [editingPath, setEditingPath] = useState<string>();
   const [password, setPassword] = useState("");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
@@ -80,12 +104,32 @@ export default function Publisher({ initialAuthenticated }: { initialAuthenticat
   const [success, setSuccess] = useState(false);
   const path = eventPath(date, title);
 
+  const clearEditor = () => {
+    setEditingPath(undefined);
+    setTitle("");
+    setDate("");
+    setDescription("");
+    setPhotos([]);
+    setMessage("");
+    setSuccess(false);
+  };
+
+  const edit = (collection: Collection) => {
+    setEditingPath(eventPath(collection.date, collection.title));
+    setTitle(collection.title);
+    setDate(collection.date);
+    setDescription(collection.description || "");
+    setPhotos(inputPhotos(collection));
+    setMessage("");
+    setSuccess(false);
+  };
+
   const login = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setMessage("");
     try {
-      await post("/api/publish/login", { password });
+      await request("/api/publish/login", { password });
       setPassword("");
       setAuthenticated(true);
     } catch (error) {
@@ -98,11 +142,11 @@ export default function Publisher({ initialAuthenticated }: { initialAuthenticat
   const logout = async () => {
     setBusy(true);
     try {
-      await post("/api/publish/logout");
+      await request("/api/publish/logout");
     } finally {
       setAuthenticated(false);
       setBusy(false);
-      setMessage("");
+      clearEditor();
     }
   };
 
@@ -118,7 +162,7 @@ export default function Publisher({ initialAuthenticated }: { initialAuthenticat
     }
     if (photos.length + next.length > 50) {
       setSuccess(false);
-      setMessage("Choose no more than 50 images.");
+      setMessage("Keep no more than 50 images.");
       return;
     }
     setMessage("");
@@ -126,58 +170,79 @@ export default function Publisher({ initialAuthenticated }: { initialAuthenticat
       id: crypto.randomUUID(),
       file,
       alt: "",
+      photographer: "",
+      source: "",
     }))]);
   };
 
-  const updateAlt = (id: string, alt: string) => {
-    setPhotos((current) => current.map((photo) => photo.id === id ? { ...photo, alt } : photo));
+  const updatePhoto = (id: string, changes: Partial<PhotoInput>) => {
+    setPhotos((current) => current.map((photo) => photo.id === id ? { ...photo, ...changes } : photo));
   };
 
-  const publish = async (event: FormEvent) => {
+  const movePhoto = (index: number, offset: number) => {
+    setPhotos((current) => {
+      const next = [...current];
+      [next[index], next[index + offset]] = [next[index + offset], next[index]];
+      return next;
+    });
+  };
+
+  const save = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setSuccess(false);
-    setMessage(`Optimizing ${photos.length} image${photos.length === 1 ? "" : "s"}…`);
+    const newPhotos = photos.filter((photo) => photo.file);
+    setMessage(newPhotos.length ? `Optimizing ${newPhotos.length} new image${newPhotos.length === 1 ? "" : "s"}…` : "Saving event…");
     let uploads: Upload[] = [];
     try {
-      const files: File[] = [];
-      for (const photo of photos) files.push(await optimizeImage(photo.file));
-      setMessage("Preparing uploads…");
-      const prepared = await post<{ path: string; uploads: Upload[] }>("/api/publish/upload", {
-        title,
-        date,
-        files: files.map((file) => ({ name: file.name, type: file.type, size: file.size })),
-      });
-      uploads = prepared.uploads;
-      setMessage(`Uploading ${uploads.length} image${uploads.length === 1 ? "" : "s"}…`);
-      const results = await Promise.allSettled(uploads.map((upload, index) => fetch(upload.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": upload.type },
-        body: files[index],
-      }).then((response) => {
-        if (!response.ok) throw new Error(`Upload failed with ${response.status}`);
-      })));
-      if (results.some((result) => result.status === "rejected")) throw new Error("One or more image uploads failed.");
+      if (newPhotos.length) {
+        const files: File[] = [];
+        for (const photo of newPhotos) files.push(await optimizeImage(photo.file!));
+        setMessage("Preparing uploads…");
+        const prepared = await request<{ path: string; uploads: Upload[] }>("/api/publish/upload", {
+          title,
+          date,
+          ...(editingPath ? { originalPath: editingPath } : {}),
+          files: files.map((file) => ({ name: file.name, type: file.type, size: file.size })),
+        });
+        uploads = prepared.uploads;
+        setMessage(`Uploading ${uploads.length} image${uploads.length === 1 ? "" : "s"}…`);
+        const results = await Promise.allSettled(uploads.map((upload, index) => fetch(upload.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": upload.type },
+          body: files[index],
+        }).then((response) => {
+          if (!response.ok) throw new Error(`Upload failed with ${response.status}`);
+        })));
+        if (results.some((result) => result.status === "rejected")) throw new Error("One or more image uploads failed.");
+      }
 
-      setMessage("Publishing gallery metadata…");
-      await post("/api/publish/event", {
+      let uploadIndex = 0;
+      setMessage(editingPath ? "Saving changes…" : "Publishing gallery metadata…");
+      const result = await request<{ path: string; collection: Collection }>("/api/publish/event", {
+        ...(editingPath ? { originalPath: editingPath } : {}),
         title,
         date,
         description,
-        photos: photos.map((photo, index) => ({
-          key: uploads[index].key,
+        photos: photos.map((photo) => ({
+          ...(photo.file ? { key: uploads[uploadIndex++].key } : { src: photo.src }),
           alt: photo.alt,
+          photographer: photo.photographer,
+          source: photo.source,
         })),
-      });
+      }, editingPath ? "PUT" : "POST");
+
+      setCollections((current) => (editingPath
+        ? current.map((collection) => eventPath(collection.date, collection.title) === editingPath
+          ? result.collection : collection)
+        : [result.collection, ...current]).sort((a, b) => b.date.localeCompare(a.date)));
+      setEditingPath(result.path);
+      setPhotos(inputPhotos(result.collection));
       setSuccess(true);
-      setMessage(`Published ${prepared.path}`);
-      setTitle("");
-      setDate("");
-      setDescription("");
-      setPhotos([]);
+      setMessage(editingPath ? "Changes saved." : "Event published.");
     } catch (error) {
       if (error instanceof RequestError && error.status === 401) setAuthenticated(false);
-      const reason = error instanceof Error ? error.message : "Publishing failed.";
+      const reason = error instanceof Error ? error.message : "Saving failed.";
       const keys = uploads.map(({ key }) => key);
       setMessage(keys.length ? `${reason} Check these possibly orphaned R2 keys: ${keys.join(", ")}` : reason);
     } finally {
@@ -190,7 +255,7 @@ export default function Publisher({ initialAuthenticated }: { initialAuthenticat
       <header className={styles.header}>
         <div>
           <Link href="/misc">← /misc</Link>
-          <h1>Publish an event</h1>
+          <h1>Gallery publisher</h1>
         </div>
         {authenticated && <button type="button" onClick={logout} disabled={busy}>Log out</button>}
       </header>
@@ -198,65 +263,138 @@ export default function Publisher({ initialAuthenticated }: { initialAuthenticat
       {!authenticated ? (
         <form className={styles.login} onSubmit={login}>
           <label htmlFor="password">Publishing password</label>
-          <input id="password" type="password" autoComplete="current-password" required
+          <input id="password" type="password" autoComplete="current-password" required autoFocus
             value={password} onChange={(event) => setPassword(event.target.value)} />
           <button disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
         </form>
       ) : (
-        <form className={styles.form} onSubmit={publish}>
-          <div className={styles.eventFields}>
-            <label>
-              Event title
-              <input required maxLength={160} value={title} onChange={(event) => setTitle(event.target.value)} />
-            </label>
-            <label>
-              Date
-              <input required type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-            </label>
-          </div>
+        <div className={styles.workspace}>
+          <aside className={styles.eventList} aria-label="Events">
+            <div className={styles.listHeading}>
+              <h2>Events</h2>
+              <span>{collections.length}</span>
+            </div>
+            <button type="button" className={styles.newEvent} onClick={clearEditor}>+ New event</button>
+            <div className={styles.eventButtons}>
+              {collections.map((collection) => {
+                const collectionPath = eventPath(collection.date, collection.title);
+                return (
+                  <button type="button" key={collectionPath} aria-pressed={editingPath === collectionPath}
+                    onClick={() => edit(collection)}>
+                    <strong>{collection.title}</strong>
+                    <span>{collection.date} · {collection.photos.length} photos</span>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
 
-          <label>
-            Event description (optional)
-            <textarea maxLength={1000} rows={3} value={description}
-              onChange={(event) => setDescription(event.target.value)} />
-          </label>
+          <form className={styles.form} onSubmit={save}>
+            <div className={styles.editorHeading}>
+              <div>
+                <p>{editingPath ? "Editing event" : "New event"}</p>
+                <h2>{editingPath ? title : "Create a gallery event"}</h2>
+              </div>
+              {editingPath && <button type="button" onClick={clearEditor}>Cancel</button>}
+            </div>
 
-          <p className={styles.path}>/{path || "misc/YYYY-MM-DD-event/"}</p>
-
-          <label className={styles.filePicker}>
-            Choose images
-            <input type="file" accept="image/jpeg,image/webp,image/png" multiple
-              onChange={(event) => {
-                addFiles(event.target.files);
-                event.target.value = "";
-              }} />
-          </label>
-
-          <div className={styles.photos}>
-            {photos.map((photo, index) => (
-              <fieldset key={photo.id} className={styles.photo}>
-                <legend>{String(index + 1).padStart(2, "0")} · {photo.file.name}</legend>
-                <Preview file={photo.file} alt={photo.alt} />
+            <section className={styles.panel}>
+              <h3>Event details</h3>
+              <div className={styles.eventFields}>
                 <label>
-                  Alt text (optional)
-                  <textarea maxLength={500} rows={2} value={photo.alt}
-                    onChange={(event) => updateAlt(photo.id, event.target.value)} />
+                  Event title
+                  <input required maxLength={160} value={title} onChange={(event) => setTitle(event.target.value)} />
                 </label>
-                <button type="button" className={styles.remove}
-                  onClick={() => setPhotos((current) => current.filter(({ id }) => id !== photo.id))}>
-                  Remove
-                </button>
-              </fieldset>
-            ))}
-          </div>
+                <label>
+                  Date
+                  <input required type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+                </label>
+              </div>
+              <label>
+                Description <span>(optional)</span>
+                <textarea maxLength={1000} rows={4} value={description}
+                  onChange={(event) => setDescription(event.target.value)} />
+              </label>
+              <p className={styles.path}>/{path || "misc/YYYY-MM-DD-event/"}</p>
+            </section>
 
-          <button className={styles.publish} disabled={busy || !path || photos.length === 0}>
-            {busy ? "Working…" : "Upload and publish"}
-          </button>
-        </form>
+            <section className={styles.panel}>
+              <div className={styles.photoHeading}>
+                <div>
+                  <h3>Photos</h3>
+                  <p>{photos.length} of 50</p>
+                </div>
+                <label className={styles.filePicker}>
+                  + Add images
+                  <input type="file" accept="image/jpeg,image/webp,image/png" multiple
+                    onChange={(event) => {
+                      addFiles(event.target.files);
+                      event.target.value = "";
+                    }} />
+                </label>
+              </div>
+
+              {photos.length === 0 ? (
+                <label className={styles.emptyPhotos}>
+                  <strong>Add the first images</strong>
+                  <span>JPEG, PNG, or WebP · up to 15 MB each</span>
+                  <input type="file" accept="image/jpeg,image/webp,image/png" multiple
+                    onChange={(event) => {
+                      addFiles(event.target.files);
+                      event.target.value = "";
+                    }} />
+                </label>
+              ) : (
+                <div className={styles.photos}>
+                  {photos.map((photo, index) => (
+                    <fieldset key={photo.id} className={styles.photo}>
+                      <legend>{String(index + 1).padStart(2, "0")}</legend>
+                      <Preview photo={photo} />
+                      <div className={styles.photoFields}>
+                        <p className={styles.fileName}>{photo.file?.name || photo.src?.split("/").at(-1)}</p>
+                        <label>
+                          Alt text <span>(optional)</span>
+                          <textarea maxLength={500} rows={2} value={photo.alt}
+                            onChange={(event) => updatePhoto(photo.id, { alt: event.target.value })} />
+                        </label>
+                        <div className={styles.creditFields}>
+                          <label>
+                            Photographer <span>(optional)</span>
+                            <input maxLength={160} value={photo.photographer}
+                              onChange={(event) => updatePhoto(photo.id, { photographer: event.target.value })} />
+                          </label>
+                          <label>
+                            Source URL <span>(optional)</span>
+                            <input type="url" maxLength={2048} placeholder="https://"
+                              value={photo.source} onChange={(event) => updatePhoto(photo.id, { source: event.target.value })} />
+                          </label>
+                        </div>
+                        <div className={styles.photoActions}>
+                          <button type="button" disabled={index === 0} onClick={() => movePhoto(index, -1)}>Move up</button>
+                          <button type="button" disabled={index === photos.length - 1} onClick={() => movePhoto(index, 1)}>Move down</button>
+                          <button type="button" className={styles.remove}
+                            onClick={() => setPhotos((current) => current.filter(({ id }) => id !== photo.id))}>
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </fieldset>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <div className={styles.saveBar}>
+              <button className={styles.publish} disabled={busy || !path || photos.length === 0}>
+                {busy ? "Working…" : editingPath ? "Save changes" : "Upload and publish"}
+              </button>
+              {message && <p className={success ? styles.success : styles.message} role="status">{message}</p>}
+            </div>
+          </form>
+        </div>
       )}
 
-      {message && <p className={success ? styles.success : styles.message} role="status">{message}</p>}
+      {!authenticated && message && <p className={styles.message} role="status">{message}</p>}
     </main>
   );
 }
