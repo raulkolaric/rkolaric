@@ -210,6 +210,9 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [collections, selectPhoto]);
 
+  const allPhotos = collections.flatMap((collection, collectionIndex) =>
+    collection.photos.map((photo, photoIndex) => ({ collection, collectionIndex, photo, photoIndex })));
+
   return (
     <main className={styles.page} ref={page}>
       <header className={styles.header}>
@@ -224,21 +227,21 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
       {overview ? (
         <section className={styles.overview} aria-label="All photos">
           <p className={styles.overviewCount}>
-            {collections.reduce((total, collection) => total + collection.photos.length, 0)} photos
+            {allPhotos.length} photos
           </p>
           <div className={styles.photoGrid}>
-            {collections.flatMap((collection, collectionIndex) => collection.photos.map((photo, photoIndex) => (
+            {allPhotos.map(({ collection, collectionIndex, photo, photoIndex }, index) => (
               <button key={photoName(collectionIndex, photoIndex)} type="button"
                 className={styles.gridPhoto} data-photo={`${collectionIndex}:${photoIndex}`}
                 style={{ viewTransitionName: transitionCollection === null || transitionCollection === collectionIndex
                   ? photoName(collectionIndex, photoIndex)
-                  : "none" }}
+                  : "none", animationDelay: `${Math.min(index * 35, 1000)}ms` }}
                 aria-label={`Open ${photo.alt || `photo ${photoIndex + 1}`} — ${collection.title}, ${collection.date}`}
                 title={`${collection.date} · ${collection.title}`}
                 onClick={() => changeView(false, { collection: collectionIndex, photo: photoIndex })}>
                 <Image src={photo.src} alt="" fill sizes="88px" quality={60} />
               </button>
-            )))}
+            ))}
           </div>
         </section>
       ) : collections.map((collection, index) => (

@@ -50,7 +50,12 @@
   border: 0;
   background: var(--bg);
   cursor: zoom-in;
+  animation: gridPhotoFade 280ms ease-out both;
   transition: filter 160ms ease, transform 160ms ease;
+}
+
+@keyframes gridPhotoFade {
+  from { opacity: 0; }
 }
 
 .gridPhoto:hover,
@@ -62,6 +67,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .gridPhoto {
+    animation: none;
     transition: none;
   }
 
