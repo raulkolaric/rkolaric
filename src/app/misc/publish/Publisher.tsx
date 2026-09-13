@@ -25,7 +25,8 @@ type Upload = {
 const MAX_IMAGE_EDGE = 2400;
 
 async function optimizeImage(file: File) {
-  const bitmap = await createImageBitmap(file);
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" })
+    .catch(() => createImageBitmap(file));
   const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bitmap.width * scale);
