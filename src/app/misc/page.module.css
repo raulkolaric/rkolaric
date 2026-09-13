@@ -259,7 +259,19 @@
   padding: 6px;
   margin: -6px;
   overflow-y: auto;
+  scrollbar-color: color-mix(in srgb, var(--fg) 35%, transparent) transparent;
+  scrollbar-width: thin;
   view-transition-group: contain;
+}
+
+.previews::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.previews::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fg) 35%, transparent);
 }
 
 .preview {
@@ -288,8 +300,11 @@
 }
 
 .preview[aria-pressed="true"] {
-  outline: 1px solid var(--accent);
-  outline-offset: 4px;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.preview:focus-visible {
+  outline-offset: -2px;
 }
 
 .preview:hover {
