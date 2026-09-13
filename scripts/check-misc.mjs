@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { listenForPinch } from "../src/app/misc/pinch.mjs";
-import { photoForArrow } from "../src/app/misc/navigation.mjs";
+import { keyForSwipe, photoForArrow } from "../src/app/misc/navigation.mjs";
 import { galleryImageSizes, gallerySrcSet } from "../src/app/misc/preload.mjs";
 
 const root = new URL("../", import.meta.url);
@@ -82,7 +82,13 @@ assert.deepEqual(photoForArrow(lengths, { collection: 2, photo: 0 }, "ArrowRight
   "Right wraps from the final photo to the start");
 assert.deepEqual(photoForArrow(lengths, { collection: 0, photo: 0 }, "ArrowLeft"), { collection: 2, photo: 0 },
   "Left wraps from the first photo to the end");
+assert.equal(keyForSwipe({ x: 200, y: 100 }, { x: 100, y: 105 }), "ArrowRight",
+  "Swiping left advances like ArrowRight");
+assert.equal(keyForSwipe({ x: 100, y: 100 }, { x: 200, y: 105 }), "ArrowLeft",
+  "Swiping right goes back like ArrowLeft");
+assert.equal(keyForSwipe({ x: 100, y: 100 }, { x: 130, y: 100 }), null, "Short touches are ignored");
+assert.equal(keyForSwipe({ x: 100, y: 100 }, { x: 170, y: 180 }), null, "Vertical scrolling stays native");
 assert.match(galleryImageSizes, /46vw/, "Preloads use the gallery's rendered desktop width");
 assert.match(gallerySrcSet("https://example.com/photo.jpg"), /w=1080&q=75 1080w/, "Preloads include retina widths");
 
-console.log("Gallery content, gestures, arrow navigation, and preload URLs checked.");
+console.log("Gallery content, gestures, photo navigation, and preload URLs checked.");
