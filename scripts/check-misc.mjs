@@ -77,9 +77,11 @@ const lengths = [3, 2, 1];
 assert.deepEqual(photoForArrow(lengths, { collection: 0, photo: 0 }, "ArrowRight"), { collection: 0, photo: 1 });
 assert.deepEqual(photoForArrow(lengths, { collection: 0, photo: 2 }, "ArrowRight"), { collection: 1, photo: 0 });
 assert.deepEqual(photoForArrow(lengths, { collection: 1, photo: 0 }, "ArrowLeft"), { collection: 0, photo: 2 });
-assert.deepEqual(photoForArrow(lengths, { collection: 0, photo: 2 }, "ArrowLeft"), { collection: 1, photo: 0 },
-  "Left from an event's last photo advances to the next event");
-assert.deepEqual(photoForArrow(lengths, { collection: 2, photo: 0 }, "ArrowRight"), { collection: 2, photo: 0 });
+assert.deepEqual(photoForArrow(lengths, { collection: 0, photo: 2 }, "ArrowLeft"), { collection: 0, photo: 1 });
+assert.deepEqual(photoForArrow(lengths, { collection: 2, photo: 0 }, "ArrowRight"), { collection: 0, photo: 0 },
+  "Right wraps from the final photo to the start");
+assert.deepEqual(photoForArrow(lengths, { collection: 0, photo: 0 }, "ArrowLeft"), { collection: 2, photo: 0 },
+  "Left wraps from the first photo to the end");
 assert.match(galleryImageSizes, /46vw/, "Preloads use the gallery's rendered desktop width");
 assert.match(gallerySrcSet("https://example.com/photo.jpg"), /w=1080&q=75 1080w/, "Preloads include retina widths");
 
