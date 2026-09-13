@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import AnimatedFavicon from "../components/AnimatedFavicon";
 import "./globals.css";
 
 const jetbrainsMono = JetBrains_Mono({
@@ -13,6 +12,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Raul Kolarić",
   description: "Automation, Cloud, Open Source",
+  icons: { icon: { url: "/favicon.png", type: "image/png", sizes: "64x64" } },
 };
 
 export default function RootLayout({
@@ -33,7 +33,6 @@ export default function RootLayout({
             __html: `try{const theme=localStorage.getItem("theme");if(theme==="light"||theme==="dark")document.documentElement.dataset.theme=theme}catch{}`,
           }}
         />
-        <AnimatedFavicon />
       </head>
       <body>
         {children}

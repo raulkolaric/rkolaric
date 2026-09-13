@@ -30,27 +30,24 @@ import { writeFile } from 'node:fs/promises';
 assert.equal(donut(0)[136], -1, 'The static frame must have a visible hole');
 assert.notDeepEqual(donut(0), donut(Math.PI / 2));
 assert.deepEqual(donut(0).map(v => v.toFixed(6)), donut(Math.PI * 2).map(v => v.toFixed(6)));
-const frames = [];
-for (let frame = 0; frame < 64; frame++) {
-  const samples = donut(frame * Math.PI * 2 / 64);
-  const rgba = Buffer.alloc(64 * 64 * 4);
-  for (let y = 0; y < 64; y++) {
-    for (let x = 0; x < 64; x++) {
-      const value = samples[Math.floor(y / 4) * 16 + Math.floor(x / 4)];
-      if (value < 0) continue;
-      assert(value >= 0.15 && value <= 1);
-      const offset = (y * 64 + x) * 4;
-      // Match the landing page dark-theme accent (#22c55e), preserving shading.
-      const brightness = (70 + value * 185) / 255;
-      rgba[offset] = Math.round(34 * brightness);
-      rgba[offset + 1] = Math.round(197 * brightness);
-      rgba[offset + 2] = Math.round(94 * brightness);
-      rgba[offset + 3] = 255;
-    }
+const samples = donut(0);
+const rgba = Buffer.alloc(64 * 64 * 4);
+for (let y = 0; y < 64; y++) {
+  for (let x = 0; x < 64; x++) {
+    const value = samples[Math.floor(y / 4) * 16 + Math.floor(x / 4)];
+    if (value < 0) continue;
+    assert(value >= 0.15 && value <= 1);
+    const offset = (y * 64 + x) * 4;
+    // Match the landing page dark-theme accent (#22c55e), preserving shading.
+    const brightness = (70 + value * 185) / 255;
+    rgba[offset] = Math.round(34 * brightness);
+    rgba[offset + 1] = Math.round(197 * brightness);
+    rgba[offset + 2] = Math.round(94 * brightness);
+    rgba[offset + 3] = 255;
   }
-  const png = await sharp(rgba, { raw: { width: 64, height: 64, channels: 4 } }).png().toBuffer();
-  if (frame === 0) await writeFile(new URL('../public/favicon.png', import.meta.url), png);
-  frames.push(`data:image/png;base64,${png.toString('base64')}`);
 }
-await writeFile(new URL('../src/generated/favicon-frames.json', import.meta.url), JSON.stringify(frames));
-console.log('Generated 64 frames; geometry, shading, and loop checks passed.');
+const png = await sharp(rgba, { raw: { width: 64, height: 64, channels: 4 } })
+  .png({ palette: true, colours: 16, compressionLevel: 9, effort: 10 })
+  .toBuffer();
+await writeFile(new URL('../public/favicon.png', import.meta.url), png);
+console.log('Generated optimized static favicon; geometry and shading checks passed.');

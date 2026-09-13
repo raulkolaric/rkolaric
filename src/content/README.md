@@ -101,13 +101,9 @@ Add this CORS policy to the R2 bucket, replacing or extending the origins when t
 
 ### 1. Prepare public copies
 
-For each public copy:
-
-- Correct its rotation before export.
-- Keep the long edge around 2400 pixels.
-- Export JPEG at roughly 80–85% quality, or WebP at similar visual quality.
-- Remove location and other EXIF metadata.
-- Inspect the exported copy before upload.
+The publisher automatically applies camera rotation, limits the long edge to 2400 pixels,
+converts the copy to WebP at 82% quality, and removes EXIF metadata before upload. Inspect
+the preview and keep the original in private storage.
 
 Keep the originals in the photo library or backup. R2 is the delivery copy, not the master archive.
 
@@ -116,7 +112,7 @@ Keep the originals in the photo library or backup. R2 is the delivery copy, not 
 1. Open `/misc/publish` and enter the publishing password.
 2. Enter the event title and date.
 3. Optionally add one description for the event.
-4. Choose up to 50 prepared JPEG, WebP, or PNG images, each no larger than 15 MB.
+4. Choose up to 50 JPEG, WebP, or PNG images, each no larger than 15 MB.
 5. Preview the selected images and optionally add alt text to each one.
 6. Review the generated immutable event path.
 7. Choose **Upload and publish**.

@@ -50,7 +50,12 @@
   border: 0;
   background: var(--bg);
   cursor: zoom-in;
+  animation: gridPhotoFade 280ms ease-out both;
   transition: filter 160ms ease, transform 160ms ease;
+}
+
+@keyframes gridPhotoFade {
+  from { opacity: 0; }
 }
 
 .gridPhoto:hover,
@@ -62,6 +67,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .gridPhoto {
+    animation: none;
     transition: none;
   }
 
@@ -145,6 +151,8 @@
   display: flex;
   flex-direction: column;
   padding: 2.5rem 0;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 700px;
 }
 
 .eventHeading {
@@ -158,34 +166,6 @@
 .eventHeading time {
   color: var(--muted);
   font-size: 0.8125rem;
-}
-
-@keyframes scrollFade {
-  0%, 15% {
-    opacity: 0;
-    transform: translateY(48px);
-  }
-  40%, 60% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  85%, 100% {
-    opacity: 0;
-    transform: translateY(-48px);
-  }
-}
-
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .event {
-      animation: scrollFade 1s linear both;
-      animation-timeline: view();
-    }
-
-    .event:has(:focus-visible) {
-      animation: none;
-    }
-  }
 }
 
 .gallery {
@@ -257,7 +237,19 @@
   padding: 6px;
   margin: -6px;
   overflow-y: auto;
+  scrollbar-color: color-mix(in srgb, var(--fg) 35%, transparent) transparent;
+  scrollbar-width: thin;
   view-transition-group: contain;
+}
+
+.previews::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.previews::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fg) 35%, transparent);
 }
 
 .preview {
@@ -286,8 +278,11 @@
 }
 
 .preview[aria-pressed="true"] {
-  outline: 1px solid var(--accent);
-  outline-offset: 4px;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.preview:focus-visible {
+  outline-offset: -2px;
 }
 
 .preview:hover {
