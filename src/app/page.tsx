@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import AsciiBackground from "@/components/AsciiBackground";
 import { preloadGalleryImage } from "./misc/preload.mjs";
@@ -22,7 +22,6 @@ const resumeUrl = "https://photos.rkolaric.com/resume/raul-kolaric-en.pdf";
 
 export default function Home() {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
-  const resumeDialog = useRef<HTMLDialogElement>(null);
 
   // Restore saved theme on mount.
   useEffect(() => {
@@ -78,14 +77,9 @@ export default function Home() {
             </span>)}
           </div>
 
-          <button
-            type="button"
-            className="text-link"
-            aria-haspopup="dialog"
-            onClick={() => resumeDialog.current?.showModal()}
-          >
+          <a href={resumeUrl} target="_blank" rel="noopener noreferrer">
             Résumé
-          </button>
+          </a>
 
           {projectLinks.map((link) => <a
             key={link.label}
@@ -99,45 +93,6 @@ export default function Home() {
           <Link className="misc-link" href="/misc">Misc</Link>
         </nav>
       </header>
-
-      <dialog
-        ref={resumeDialog}
-        className="resume-dialog"
-        aria-labelledby="resume-title"
-        onClick={(event) => {
-          if (event.target === event.currentTarget) event.currentTarget.close();
-        }}
-      >
-        <section className="resume-sheet">
-          <header className="resume-header">
-            <h2 id="resume-title">Résumé</h2>
-            <span className="resume-language" aria-label="English résumé">🇺🇸 EN</span>
-            <button
-              type="button"
-              className="resume-close"
-              aria-label="Close résumé"
-              onClick={() => resumeDialog.current?.close()}
-            >
-              ×
-            </button>
-          </header>
-
-          <iframe
-            className="resume-preview"
-            src={`${resumeUrl}#view=FitH&toolbar=0&navpanes=0`}
-            title="Raul Kolarić English résumé"
-          />
-
-          <a
-            className="resume-open"
-            href={resumeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Open in new tab <span aria-hidden="true">↗</span>
-          </a>
-        </section>
-      </dialog>
 
       <button
         className="theme-toggle"
