@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { Collection } from "@/lib/gallery";
-import { keyForSwipe, photoForArrow } from "./navigation.mjs";
+import { cascadeDelay, keyForSwipe, photoForArrow } from "./navigation.mjs";
 import { listenForPinch } from "./pinch.mjs";
 import { galleryImageSizes, preloadGalleryImage } from "./preload.mjs";
 import JellyfishBackground from "./JellyfishBackground";
@@ -157,6 +157,19 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
     }
     mode.current = next;
     busy.current = true;
+    const anchor = target ?? lastPhoto.current;
+    const animateOverview = () => {
+      const photos = Array.from(page.current?.querySelectorAll<HTMLElement>(`.${styles.gridPhoto}`) ?? []);
+      photos.forEach((photo, index) => {
+        if (photo.dataset.photo === `${anchor.collection}:${anchor.photo}`) return;
+        photo.animate([{ opacity: 0 }, { opacity: 1 }], {
+          duration: 220,
+          delay: cascadeDelay(index, photos.length),
+          easing: "ease-out",
+          fill: "backwards",
+        });
+      });
+    };
     const update = () => {
       flushSync(() => {
         setOverview(next);
@@ -174,7 +187,6 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
         window.scrollTo({ top: next ? 0 : scrollPosition.current, behavior: "instant" });
       }
       if (next) {
-        const anchor = target ?? lastPhoto.current;
         page.current?.querySelector(`[data-photo="${anchor.collection}:${anchor.photo}"]`)
           ?.scrollIntoView({ behavior: "instant", block: "nearest" });
       }
@@ -186,15 +198,16 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
         : page.current?.querySelector<HTMLElement>("[data-overview-toggle]");
       focusTarget?.focus({ preventScroll: true });
     };
-    if (!document.startViewTransition || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!document.startViewTransition || reducedMotion) {
       update();
+      if (next && !reducedMotion) requestAnimationFrame(animateOverview);
       finish();
       return true;
     }
-    flushSync(() => setTransitionPhoto(target ?? lastPhoto.current));
+    flushSync(() => setTransitionPhoto(anchor));
     const transition = document.startViewTransition(update);
-    // A skipped animation must still leave the requested view usable.
-    void transition.ready.catch(() => {});
+    void transition.ready.then(() => { if (next) animateOverview(); }, () => {});
     void transition.finished.then(finish, finish);
     return true;
   }, []);
@@ -234,10 +247,6 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
 
   const allPhotos = collections.flatMap((collection, collectionIndex) =>
     collection.photos.map((photo, photoIndex) => ({ collection, collectionIndex, photo, photoIndex })));
-  const cascadeDelay = (index: number) => Math.round(
-    index * Math.min(allPhotos.length - 1, 20) / Math.max(allPhotos.length - 1, 1),
-  ) * 12;
-
   return (
     <main className={styles.page} ref={page}>
       <JellyfishBackground />
@@ -256,15 +265,13 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
             {allPhotos.length} photos
           </p>
           <div className={styles.photoGrid}>
-            {allPhotos.map(({ collection, collectionIndex, photo, photoIndex }, index) => (
+            {allPhotos.map(({ collection, collectionIndex, photo, photoIndex }) => (
               <button key={photoName(collectionIndex, photoIndex)} type="button"
                 className={styles.gridPhoto} data-photo={`${collectionIndex}:${photoIndex}`}
                 style={{ viewTransitionName: transitionPhoto?.collection === collectionIndex
                   && transitionPhoto.photo === photoIndex
                   ? photoName(collectionIndex, photoIndex)
-                  : "none", animationDelay: `${cascadeDelay(index)}ms`,
-                animation: transitionPhoto?.collection === collectionIndex
-                  && transitionPhoto.photo === photoIndex ? "none" : undefined }}
+                  : "none" }}
                 aria-label={`Open ${photo.alt || `photo ${photoIndex + 1}`} — ${collection.title}, ${collection.date}`}
                 title={`${collection.date} · ${collection.title}`}
                 onClick={() => changeView(false, { collection: collectionIndex, photo: photoIndex })}>
