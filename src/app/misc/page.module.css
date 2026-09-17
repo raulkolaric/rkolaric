@@ -72,12 +72,7 @@
   border: 0;
   background: var(--bg);
   cursor: zoom-in;
-  animation: gridPhotoFade 280ms ease-out both;
   transition: filter 160ms ease, transform 160ms ease;
-}
-
-@keyframes gridPhotoFade {
-  from { opacity: 0; }
 }
 
 .gridPhoto:hover,
@@ -89,7 +84,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .gridPhoto {
-    animation: none;
     transition: none;
   }
 
@@ -104,8 +98,12 @@
 }
 
 :global(html):has(.page)::view-transition-group(*) {
-  animation-duration: 650ms;
+  animation-duration: 360ms;
   animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:global(html):has(.page) {
+  view-transition-name: none;
 }
 
 :global(html):has(.page)::view-transition-old(*),
@@ -128,28 +126,6 @@
 
 :global(html):has(.page)::view-transition-group-children(*) {
   overflow: clip;
-}
-
-@keyframes pageFadeOut {
-  to { opacity: 0; }
-}
-
-@keyframes pageFadeIn {
-  from { opacity: 0; }
-}
-
-:global(html):has(.page)::view-transition-old(root),
-:global(html):has(.page)::view-transition-new(root) {
-  animation: 300ms ease both;
-}
-
-:global(html):has(.page)::view-transition-old(root) {
-  display: block;
-  animation-name: pageFadeOut;
-}
-
-:global(html):has(.page)::view-transition-new(root) {
-  animation-name: pageFadeIn;
 }
 
 .header a,
@@ -251,6 +227,51 @@
   object-fit: contain;
 }
 
+.photoArrow {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  width: 3rem;
+  height: 5rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.photoArrow::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-top: 2px solid #fff;
+  border-right: 2px solid #fff;
+  filter: drop-shadow(0 1px 2px #000);
+}
+
+.previousPhoto {
+  left: 0;
+}
+
+.previousPhoto::before {
+  left: 1rem;
+  transform: translateY(-50%) rotate(-135deg);
+}
+
+.nextPhoto {
+  right: 0;
+}
+
+.nextPhoto::before {
+  right: 1rem;
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.photoArrow:hover::before {
+  border-color: var(--accent);
+}
+
 .previews {
   display: flex;
   flex-direction: column;
@@ -344,6 +365,10 @@
 }
 
 @media (max-width: 760px) {
+  :global(html):has(.page) {
+    scroll-behavior: smooth;
+  }
+
   .gallery {
     grid-template-columns: minmax(0, 1fr);
     gap: 2rem;
@@ -362,14 +387,36 @@
     height: clamp(220px, 40svh, 360px);
   }
 
+  .photo img {
+    animation: photoFade 180ms ease-out;
+  }
+
   .previews {
     flex-direction: row;
     padding: 6px;
     overflow-x: auto;
     max-height: none;
+    scroll-behavior: smooth;
   }
 
   .footer {
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 760px) and (prefers-reduced-motion: reduce) {
+  :global(html):has(.page),
+  .previews {
+    scroll-behavior: auto;
+  }
+
+  .photo img {
+    animation: none;
+  }
+}
+
+@keyframes photoFade {
+  from {
+    opacity: 0.72;
   }
 }

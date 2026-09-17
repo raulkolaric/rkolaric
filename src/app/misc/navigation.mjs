@@ -28,3 +28,7 @@ export function keyForSwipe(start, end) {
   if (Math.abs(x) < 48 || Math.abs(x) <= Math.abs(y) * 1.25) return null;
   return x < 0 ? "ArrowRight" : "ArrowLeft";
 }
+
+export function cascadeDelay(index, total) {
+  return Math.round(index * Math.min(total - 1, 20) / Math.max(total - 1, 1)) * 12;
+}
