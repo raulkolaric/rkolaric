@@ -108,8 +108,8 @@
   animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-:global(html):has(.page)::view-transition-group(root) {
-  animation-duration: 180ms;
+:global(html):has(.page) {
+  view-transition-name: none;
 }
 
 :global(html):has(.page)::view-transition-old(*),
@@ -132,28 +132,6 @@
 
 :global(html):has(.page)::view-transition-group-children(*) {
   overflow: clip;
-}
-
-@keyframes pageFadeOut {
-  to { opacity: 0; }
-}
-
-@keyframes pageFadeIn {
-  from { opacity: 0; }
-}
-
-:global(html):has(.page)::view-transition-old(root),
-:global(html):has(.page)::view-transition-new(root) {
-  animation: 180ms ease both;
-}
-
-:global(html):has(.page)::view-transition-old(root) {
-  display: block;
-  animation-name: pageFadeOut;
-}
-
-:global(html):has(.page)::view-transition-new(root) {
-  animation-name: pageFadeIn;
 }
 
 .header a,

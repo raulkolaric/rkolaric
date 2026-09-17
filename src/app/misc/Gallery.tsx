@@ -181,7 +181,6 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
     };
     const finish = () => {
       busy.current = false;
-      setTransitionPhoto(null);
       const focusTarget = !next && target
         ? page.current?.querySelector<HTMLElement>(`[data-event="${target.collection}"]`)
         : page.current?.querySelector<HTMLElement>("[data-overview-toggle]");
