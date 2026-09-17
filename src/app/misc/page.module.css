@@ -389,6 +389,10 @@
 }
 
 @media (max-width: 760px) {
+  :global(html):has(.page) {
+    scroll-behavior: smooth;
+  }
+
   .gallery {
     grid-template-columns: minmax(0, 1fr);
     gap: 2rem;
@@ -407,14 +411,36 @@
     height: clamp(220px, 40svh, 360px);
   }
 
+  .photo img {
+    animation: photoFade 180ms ease-out;
+  }
+
   .previews {
     flex-direction: row;
     padding: 6px;
     overflow-x: auto;
     max-height: none;
+    scroll-behavior: smooth;
   }
 
   .footer {
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 760px) and (prefers-reduced-motion: reduce) {
+  :global(html):has(.page),
+  .previews {
+    scroll-behavior: auto;
+  }
+
+  .photo img {
+    animation: none;
+  }
+}
+
+@keyframes photoFade {
+  from {
+    opacity: 0.72;
   }
 }

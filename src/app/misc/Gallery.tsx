@@ -83,6 +83,7 @@ function CollectionGallery({ collection, index, selected, animate, onSelect, onS
             }}
             onTouchCancel={() => { swipeStart.current = null; }}>
             <Image
+              key={photo.src}
               src={photo.src}
               alt={photo.alt || ""}
               fill
@@ -138,9 +139,9 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
     lastPhoto.current = target;
     requestAnimationFrame(() => {
       const event = page.current?.querySelector<HTMLElement>(`[data-event="${target.collection}"]`);
-      if (scrollEvent) event?.scrollIntoView({ behavior: "instant", block: "center" });
+      if (scrollEvent) event?.scrollIntoView({ behavior: "auto", block: "center" });
       event?.querySelector(`[data-photo="${target.collection}:${target.photo}"][aria-pressed]`)
-        ?.scrollIntoView({ behavior: "instant", block: "nearest", inline: "nearest" });
+        ?.scrollIntoView({ behavior: "auto", block: "nearest", inline: "nearest" });
     });
   }, []);
 
