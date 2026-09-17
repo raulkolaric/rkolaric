@@ -235,6 +235,7 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
 
   const allPhotos = collections.flatMap((collection, collectionIndex) =>
     collection.photos.map((photo, photoIndex) => ({ collection, collectionIndex, photo, photoIndex })));
+  const cascadeStep = 160 / Math.max(allPhotos.length - 1, 1);
 
   return (
     <main className={styles.page} ref={page}>
@@ -254,13 +255,15 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
             {allPhotos.length} photos
           </p>
           <div className={styles.photoGrid}>
-            {allPhotos.map(({ collection, collectionIndex, photo, photoIndex }) => (
+            {allPhotos.map(({ collection, collectionIndex, photo, photoIndex }, index) => (
               <button key={photoName(collectionIndex, photoIndex)} type="button"
                 className={styles.gridPhoto} data-photo={`${collectionIndex}:${photoIndex}`}
                 style={{ viewTransitionName: transitionPhoto?.collection === collectionIndex
                   && transitionPhoto.photo === photoIndex
                   ? photoName(collectionIndex, photoIndex)
-                  : "none" }}
+                  : "none", animationDelay: `${index * cascadeStep}ms`,
+                animation: transitionPhoto?.collection === collectionIndex
+                  && transitionPhoto.photo === photoIndex ? "none" : undefined }}
                 aria-label={`Open ${photo.alt || `photo ${photoIndex + 1}`} — ${collection.title}, ${collection.date}`}
                 title={`${collection.date} · ${collection.title}`}
                 onClick={() => changeView(false, { collection: collectionIndex, photo: photoIndex })}>
