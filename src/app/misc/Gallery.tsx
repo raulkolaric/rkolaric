@@ -89,6 +89,10 @@ function CollectionGallery({ collection, index, selected, animate, onSelect, onS
               priority={index === 0}
               sizes={galleryImageSizes}
             />
+            <button type="button" className={`${styles.photoArrow} ${styles.previousPhoto}`}
+              aria-label="Previous photo" onClick={() => onSwipe("ArrowLeft")} />
+            <button type="button" className={`${styles.photoArrow} ${styles.nextPhoto}`}
+              aria-label="Next photo" onClick={() => onSwipe("ArrowRight")} />
           </div>
           <figcaption className={styles.photoCount} aria-live="polite" aria-atomic="true"
             aria-label={`Photo ${selected + 1} of ${photos.length}`}>
