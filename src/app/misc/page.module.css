@@ -72,7 +72,7 @@
   border: 0;
   background: var(--bg);
   cursor: zoom-in;
-  animation: gridPhotoFade 180ms ease-out both;
+  animation: gridPhotoFade 220ms ease-out both;
   transition: filter 160ms ease, transform 160ms ease;
 }
 

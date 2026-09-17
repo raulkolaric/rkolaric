@@ -234,7 +234,9 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
 
   const allPhotos = collections.flatMap((collection, collectionIndex) =>
     collection.photos.map((photo, photoIndex) => ({ collection, collectionIndex, photo, photoIndex })));
-  const cascadeStep = 160 / Math.max(allPhotos.length - 1, 1);
+  const cascadeDelay = (index: number) => Math.round(
+    index * Math.min(allPhotos.length - 1, 20) / Math.max(allPhotos.length - 1, 1),
+  ) * 12;
 
   return (
     <main className={styles.page} ref={page}>
@@ -260,7 +262,7 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
                 style={{ viewTransitionName: transitionPhoto?.collection === collectionIndex
                   && transitionPhoto.photo === photoIndex
                   ? photoName(collectionIndex, photoIndex)
-                  : "none", animationDelay: `${index * cascadeStep}ms`,
+                  : "none", animationDelay: `${cascadeDelay(index)}ms`,
                 animation: transitionPhoto?.collection === collectionIndex
                   && transitionPhoto.photo === photoIndex ? "none" : undefined }}
                 aria-label={`Open ${photo.alt || `photo ${photoIndex + 1}`} — ${collection.title}, ${collection.date}`}
