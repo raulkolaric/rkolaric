@@ -32,13 +32,14 @@ function currentPhoto(page: HTMLElement, fallback: PhotoPosition, x = innerWidth
   return { collection, photo };
 }
 
-function CollectionGallery({ collection, index, selected, transitionPhoto, onSelect, onSwipe }: {
+function CollectionGallery({ collection, index, selected, transitionPhoto, onSelect, onSwipe, onExpand }: {
   collection: Collection;
   index: number;
   selected: number;
   transitionPhoto: number | null;
   onSelect: (photo: number) => void;
   onSwipe: (key: "ArrowLeft" | "ArrowRight") => void;
+  onExpand: () => void;
 }) {
   const { photos } = collection;
   const photo = photos[selected];
@@ -82,14 +83,18 @@ function CollectionGallery({ collection, index, selected, transitionPhoto, onSel
               if (key) onSwipe(key);
             }}
             onTouchCancel={() => { swipeStart.current = null; }}>
-            <Image
-              key={photo.src}
-              src={photo.src}
-              alt={photo.alt || ""}
-              fill
-              priority={index === 0}
-              sizes={galleryImageSizes}
-            />
+            <button type="button" className={styles.expandPhoto}
+              aria-label={`Expand photo ${selected + 1}`}
+              onClick={onExpand}>
+              <Image
+                key={photo.src}
+                src={photo.src}
+                alt={photo.alt || ""}
+                fill
+                priority={index === 0}
+                sizes={galleryImageSizes}
+              />
+            </button>
             <button type="button" className={`${styles.photoArrow} ${styles.previousPhoto}`}
               aria-label="Previous photo" onClick={() => onSwipe("ArrowLeft")} />
             <button type="button" className={`${styles.photoArrow} ${styles.nextPhoto}`}
@@ -126,6 +131,8 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
   const [overview, setOverview] = useState(false);
   const [selected, setSelected] = useState(() => collections.map(() => 0));
   const [transitionPhoto, setTransitionPhoto] = useState<PhotoPosition | null>(null);
+  const [expanded, setExpanded] = useState<PhotoPosition | null>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
   const page = useRef<HTMLElement>(null);
   const mode = useRef(false);
   const busy = useRef(false);
@@ -147,10 +154,12 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
     const target = photoForArrow(collections.map(({ photos }) => photos.length), current, key);
     if (target.collection === current.collection && target.photo === current.photo) return;
     selectPhoto(target, target.collection !== current.collection);
+    if (dialog.current?.open) setExpanded(target);
   }, [collections, selectPhoto]);
 
   const changeView = useCallback((next: boolean, target?: PhotoPosition) => {
     if (busy.current || next === mode.current) return false;
+    if (next) dialog.current?.close();
     if (next) {
       scrollPosition.current = window.scrollY;
       if (target) lastPhoto.current = target;
@@ -215,21 +224,32 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      for (const src of collections.flatMap(({ photos }) => photos.map(({ src }) => src))) {
+      const sources = collections.flatMap(({ photos }) => photos.map(({ src }) => src));
+      for (let i = 0; i < sources.length; i += 4) {
         if (cancelled) return;
-        await preloadGalleryImage(src);
+        await Promise.all(sources.slice(i, i + 4).map((src) => preloadGalleryImage(src)));
       }
     })();
     return () => { cancelled = true; };
   }, [collections]);
 
   useEffect(() => {
+    if (!expanded) return;
+    const lengths = collections.map(({ photos }) => photos.length);
+    const neighbors = [expanded, photoForArrow(lengths, expanded, "ArrowLeft"),
+      photoForArrow(lengths, expanded, "ArrowRight")];
+    for (const { collection, photo } of neighbors) {
+      void preloadGalleryImage(collections[collection].photos[photo].src, "100vw");
+    }
+  }, [collections, expanded]);
+
+  useEffect(() => {
     if (!page.current) return;
     return listenForPinch(window, (direction, x, y) => {
-      const target = currentPhoto(page.current!, lastPhoto.current, x, y);
+      const target = expanded ?? currentPhoto(page.current!, lastPhoto.current, x, y);
       return changeView(direction === "out", target);
     });
-  }, [changeView]);
+  }, [changeView, expanded]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -237,13 +257,13 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
         || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       const element = event.target as HTMLElement | null;
       if (element?.matches("input, textarea, select, [contenteditable='true']")) return;
-      const current = page.current ? currentPhoto(page.current, lastPhoto.current) : lastPhoto.current;
+      const current = expanded ?? (page.current ? currentPhoto(page.current, lastPhoto.current) : lastPhoto.current);
       event.preventDefault();
       navigatePhoto(current, event.key);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [navigatePhoto]);
+  }, [navigatePhoto, expanded]);
 
   const allPhotos = collections.flatMap((collection, collectionIndex) =>
     collection.photos.map((photo, photoIndex) => ({ collection, collectionIndex, photo, photoIndex })));
@@ -258,6 +278,36 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
           {overview ? "Back to events" : "All photos"}
         </button>
       </header>
+
+      <dialog ref={dialog} className={styles.photoDialog}
+        onClose={() => setExpanded(null)}
+        onClick={(event) => {
+          if ((event.target as HTMLElement).closest("button")) return;
+          const image = dialog.current?.querySelector("img");
+          if (!image?.naturalWidth || !image.naturalHeight) return;
+          const rect = image.getBoundingClientRect();
+          const scale = Math.min(rect.width / image.naturalWidth, rect.height / image.naturalHeight);
+          const width = image.naturalWidth * scale;
+          const height = image.naturalHeight * scale;
+          if (Math.abs(event.clientX - rect.left - rect.width / 2) > width / 2
+            || Math.abs(event.clientY - rect.top - rect.height / 2) > height / 2) {
+            dialog.current?.close();
+          }
+        }}>
+        <button type="button" className={styles.closePhoto} aria-label="Close expanded photo"
+          onClick={() => dialog.current?.close()}>×</button>
+        {expanded && <>
+          <div className={styles.expandedPhoto}>
+            <Image src={collections[expanded.collection].photos[expanded.photo].src}
+              alt={collections[expanded.collection].photos[expanded.photo].alt || ""}
+              fill sizes="100vw" />
+          </div>
+          <button type="button" className={`${styles.photoArrow} ${styles.previousPhoto}`}
+            aria-label="Previous expanded photo" onClick={() => navigatePhoto(expanded, "ArrowLeft")} />
+          <button type="button" className={`${styles.photoArrow} ${styles.nextPhoto}`}
+            aria-label="Next expanded photo" onClick={() => navigatePhoto(expanded, "ArrowRight")} />
+        </>}
+      </dialog>
 
       {overview ? (
         <section className={styles.overview} aria-label="All photos">
@@ -289,6 +339,10 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
           transitionPhoto={transitionPhoto?.collection === index ? transitionPhoto.photo : null}
           onSelect={(photo) => selectPhoto({ collection: index, photo })}
           onSwipe={(key) => navigatePhoto({ collection: index, photo: selected[index] }, key)}
+          onExpand={() => {
+            setExpanded({ collection: index, photo: selected[index] });
+            dialog.current?.showModal();
+          }}
         />
       ))}
 

@@ -5,9 +5,9 @@ export const gallerySrcSet = (src) => widths
   .map((width) => `/_next/image?url=${encodeURIComponent(src)}&w=${width}&q=75 ${width}w`)
   .join(", ");
 
-export function preloadGalleryImage(src) {
+export function preloadGalleryImage(src, sizes = galleryImageSizes) {
   const image = new Image();
-  image.sizes = galleryImageSizes;
+  image.sizes = sizes;
   image.srcset = gallerySrcSet(src);
   image.src = `/_next/image?url=${encodeURIComponent(src)}&w=384&q=75`;
   return image.decode().catch(() => {});
