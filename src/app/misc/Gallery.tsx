@@ -43,6 +43,7 @@ function CollectionGallery({ collection, index, selected, transitionPhoto, onSel
   const { photos } = collection;
   const photo = photos[selected];
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
 
   return (
     <section className={styles.event} aria-label={collection.title} data-event={index} tabIndex={-1}>
@@ -82,14 +83,18 @@ function CollectionGallery({ collection, index, selected, transitionPhoto, onSel
               if (key) onSwipe(key);
             }}
             onTouchCancel={() => { swipeStart.current = null; }}>
-            <Image
-              key={photo.src}
-              src={photo.src}
-              alt={photo.alt || ""}
-              fill
-              priority={index === 0}
-              sizes={galleryImageSizes}
-            />
+            <button type="button" className={styles.expandPhoto}
+              aria-label={`Expand photo ${selected + 1}`}
+              onClick={() => dialog.current?.showModal()}>
+              <Image
+                key={photo.src}
+                src={photo.src}
+                alt={photo.alt || ""}
+                fill
+                priority={index === 0}
+                sizes={galleryImageSizes}
+              />
+            </button>
             <button type="button" className={`${styles.photoArrow} ${styles.previousPhoto}`}
               aria-label="Previous photo" onClick={() => onSwipe("ArrowLeft")} />
             <button type="button" className={`${styles.photoArrow} ${styles.nextPhoto}`}
@@ -100,6 +105,15 @@ function CollectionGallery({ collection, index, selected, transitionPhoto, onSel
             {String(selected + 1).padStart(2, "0")} / {String(photos.length).padStart(2, "0")}
           </figcaption>
         </figure>
+
+        <dialog ref={dialog} className={styles.photoDialog}
+          onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close(); }}>
+          <button type="button" className={styles.closePhoto} aria-label="Close expanded photo"
+            onClick={() => dialog.current?.close()}>×</button>
+          <div className={styles.expandedPhoto}>
+            <Image src={photo.src} alt={photo.alt || ""} fill sizes="100vw" />
+          </div>
+        </dialog>
 
         <div className={styles.previews} role="group" aria-label="Choose a photo">
           {photos.map((item, photoIndex) => (
