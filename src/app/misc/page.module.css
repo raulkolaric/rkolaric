@@ -236,19 +236,21 @@
   cursor: zoom-in;
 }
 
-.photoDialog {
+.page > .photoDialog {
+  position: fixed;
   width: 100vw;
   height: 100dvh;
   max-width: none;
   max-height: none;
   padding: 2rem;
   border: 0;
-  background: #101010;
+  background: transparent;
   color: #fff;
 }
 
 .photoDialog::backdrop {
-  background: #000c;
+  background: #0008;
+  backdrop-filter: blur(12px);
 }
 
 .expandedPhoto {
