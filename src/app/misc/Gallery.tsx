@@ -223,13 +223,24 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      for (const src of collections.flatMap(({ photos }) => photos.map(({ src }) => src))) {
+      const sources = collections.flatMap(({ photos }) => photos.map(({ src }) => src));
+      for (let i = 0; i < sources.length; i += 4) {
         if (cancelled) return;
-        await preloadGalleryImage(src);
+        await Promise.all(sources.slice(i, i + 4).map((src) => preloadGalleryImage(src)));
       }
     })();
     return () => { cancelled = true; };
   }, [collections]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const lengths = collections.map(({ photos }) => photos.length);
+    const neighbors = [expanded, photoForArrow(lengths, expanded, "ArrowLeft"),
+      photoForArrow(lengths, expanded, "ArrowRight")];
+    for (const { collection, photo } of neighbors) {
+      void preloadGalleryImage(collections[collection].photos[photo].src, "100vw");
+    }
+  }, [collections, expanded]);
 
   useEffect(() => {
     if (!page.current) return;
