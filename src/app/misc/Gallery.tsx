@@ -159,6 +159,7 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
 
   const changeView = useCallback((next: boolean, target?: PhotoPosition) => {
     if (busy.current || next === mode.current) return false;
+    if (next) dialog.current?.close();
     if (next) {
       scrollPosition.current = window.scrollY;
       if (target) lastPhoto.current = target;
@@ -245,10 +246,10 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
   useEffect(() => {
     if (!page.current) return;
     return listenForPinch(window, (direction, x, y) => {
-      const target = currentPhoto(page.current!, lastPhoto.current, x, y);
+      const target = expanded ?? currentPhoto(page.current!, lastPhoto.current, x, y);
       return changeView(direction === "out", target);
     });
-  }, [changeView]);
+  }, [changeView, expanded]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
