@@ -280,7 +280,19 @@ export default function Gallery({ collections }: { collections: Collection[] }) 
 
       <dialog ref={dialog} className={styles.photoDialog}
         onClose={() => setExpanded(null)}
-        onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close(); }}>
+        onClick={(event) => {
+          if ((event.target as HTMLElement).closest("button")) return;
+          const image = dialog.current?.querySelector("img");
+          if (!image?.naturalWidth || !image.naturalHeight) return;
+          const rect = image.getBoundingClientRect();
+          const scale = Math.min(rect.width / image.naturalWidth, rect.height / image.naturalHeight);
+          const width = image.naturalWidth * scale;
+          const height = image.naturalHeight * scale;
+          if (Math.abs(event.clientX - rect.left - rect.width / 2) > width / 2
+            || Math.abs(event.clientY - rect.top - rect.height / 2) > height / 2) {
+            dialog.current?.close();
+          }
+        }}>
         <button type="button" className={styles.closePhoto} aria-label="Close expanded photo"
           onClick={() => dialog.current?.close()}>×</button>
         {expanded && <>
